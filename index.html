@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torrons Gt | Comida Chilena - Delivery Guatemala</title>
+  <meta name="description" content="Café Torrons Gt - Sandwiches chilenos, churrascos, hot-dogs, chorrillana y más. Delivery en la capital por InDrive o Uber. Pedidos con carrito de compras." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --primary: #c41e3a;
+      --primary-dark: #9a1830;
+      --secondary: #1a1a1a;
+      --accent: #f4a261;
+      --bg: #faf8f5;
+      --card: #ffffff;
+      --text: #2d2d2d;
+      --muted: #6b6b6b;
+      --success: #2a9d8f;
+      --border: #e8e4df;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* Header */
+    header {
+      background: var(--secondary);
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.2);
+    }
+
+    .header-top {
+      background: var(--primary);
+      text-align: center;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .header-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: white;
+    }
+
+    .logo img {
+      height: 52px;
+      width: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    .logo-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      letter-spacing: 1px;
+      line-height: 1.15;
+    }
+
+    .logo-text span {
+      color: var(--accent);
+    }
+
+    .logo-sub {
+      font-size: 0.68rem;
+      opacity: 0.85;
+      font-weight: 300;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    nav a:hover, nav a.active {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .cart-btn {
+      background: var(--primary);
+      border: none;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .cart-btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .cart-count {
+      background: var(--accent);
+      color: var(--secondary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #1a1a1a 0%, #3d1a1a 100%);
+      color: white;
+      padding: 60px 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.05)"/><circle cx="80" cy="40" r="1.5" fill="rgba(255,255,255,0.05)"/><circle cx="40" cy="70" r="1" fill="rgba(255,255,255,0.05)"/></svg>');
+      opacity: 0.5;
+    }
+
+    .hero-content {
+      position: relative;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.8rem;
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      opacity: 0.9;
+      margin-bottom: 24px;
+    }
+
+    .hero-badges {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      background: rgba(255,255,255,0.12);
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main content */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      text-align: center;
+      margin-bottom: 8px;
+      color: var(--secondary);
+    }
+
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    /* Categories */
+    .categories {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 36px;
+    }
+
+    .cat-btn {
+      background: white;
+      border: 2px solid var(--border);
+      padding: 10px 22px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+
+    .cat-btn:hover, .cat-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Products grid */
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .product-card {
+      background: var(--card);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: transform 0.25s, box-shadow 0.25s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .product-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+    }
+
+    .product-img {
+      height: 210px;
+      background: linear-gradient(135deg, #e8e4df, #d4cfc8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .product-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .product-img .placeholder {
+      font-size: 3.5rem;
+      opacity: 0.4;
+    }
+
+    .product-body {
+      padding: 18px 20px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .product-cat {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .product-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--secondary);
+    }
+
+    .product-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+      flex: 1;
+    }
+
+    .product-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .product-price {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .product-price span {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .add-btn {
+      background: var(--secondary);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .add-btn:hover {
+      background: var(--primary);
+    }
+
+    /* Cart sidebar */
+    .cart-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+
+    .cart-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .cart-sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 100%;
+      max-width: 420px;
+      height: 100%;
+      background: white;
+      z-index: 210;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -10px 0 40px rgba(0,0,0,0.15);
+    }
+
+    .cart-sidebar.open {
+      transform: translateX(0);
+    }
+
+    .cart-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cart-header h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+    }
+
+    .close-cart {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--muted);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .close-cart:hover {
+      background: #f0f0f0;
+    }
+
+    .cart-items {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+    }
+
+    .cart-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .cart-empty-icon {
+      font-size: 3.5rem;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+
+    .cart-item {
+      display: flex;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cart-item-info {
+      flex: 1;
+    }
+
+    .cart-item-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+    }
+
+    .cart-item-price {
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .cart-item-qty {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .qty-btn {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qty-btn:hover {
+      background: #f5f5f5;
+    }
+
+    .remove-item {
+      background: none;
+      border: none;
+      color: #e63946;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    .cart-footer {
+      padding: 20px 24px;
+      border-top: 1px solid var(--border);
+      background: #fafafa;
+    }
+
+    .cart-breakdown {
+      margin-bottom: 14px;
+    }
+
+    .cart-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .cart-total span:last-child {
+      color: var(--primary);
+    }
+
+    .checkout-btn {
+      width: 100%;
+      background: #25D366;
+      color: white;
+      border: none;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+
+    .checkout-btn:hover {
+      background: #1ebe57;
+    }
+
+    .checkout-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* Info section */
+    .info-section {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      margin-top: 50px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 28px;
+    }
+
+    .info-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-card p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--secondary);
+      color: white;
+      text-align: center;
+      padding: 30px 20px;
+      margin-top: 40px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Upload note */
+    .upload-note {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+      color: #856404;
+    }
+
+    .upload-note strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-main {
+        flex-wrap: wrap;
+      }
+
+      nav {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        margin-top: 8px;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .products-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cart-sidebar {
+        max-width: 100%;
+      }
+    }
+
+    /* Checkout Modal */
+    .checkout-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    .checkout-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .checkout-modal {
+      background: white;
+      border-radius: 18px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+      transform: translateY(30px);
+      transition: transform 0.3s;
+    }
+    .checkout-overlay.open .checkout-modal {
+      transform: translateY(0);
+    }
+    .checkout-header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 1;
+    }
+    .checkout-header h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .checkout-body {
+      padding: 20px 22px;
+    }
+    .checkout-intro {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .checkout-body label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      margin-top: 14px;
+      color: var(--secondary);
+    }
+    .checkout-body input,
+    .checkout-body textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .checkout-body input:focus,
+    .checkout-body textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .maps-help {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+    .maps-help a {
+      color: var(--primary);
+      font-weight: 500;
+    }
+    .order-summary-mini {
+      background: #f8f6f3;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 18px;
+      font-size: 0.88rem;
+    }
+    .checkout-footer {
+      padding: 16px 22px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sweetener-btn {
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: white;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .sweetener-btn:hover {
+      border-color: var(--primary);
+      background: #fff8f5;
+      color: var(--primary);
+    }
+
+    .product-card.out-of-stock {
+      opacity: 0.72;
+    }
+    .product-card.out-of-stock .product-img {
+      position: relative;
+    }
+    .soldout-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #c62828;
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 6px;
+      z-index: 2;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .soldout-btn {
+      background: #bbb !important;
+      cursor: not-allowed !important;
+      color: #fff !important;
+    }
+    .product-img { position: relative; }
+
+    .stock-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .stock-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.92rem;
+    }
+    .stock-info span {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .stock-toggle {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .stock-toggle.on {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .stock-toggle.off {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .admin-stock-btn {
+      position: fixed;
+      bottom: 18px;
+      left: 18px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      background: #333;
+      color: white;
+      font-size: 1.1rem;
+      cursor: pointer;
+      z-index: 50;
+      opacity: 0.55;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .admin-stock-btn:hover { opacity: 1; }
+
+    .extra-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .extra-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .extra-emoji {
+      font-size: 1.4rem;
+      width: 36px;
+      text-align: center;
+    }
+    .extra-name {
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+    .extra-price {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .extra-qty {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .extra-qty button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: white;
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .extra-qty button:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .extra-qty span {
+      min-width: 20px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .extras-subtotal {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 2px solid var(--border);
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-align: right;
+      color: var(--primary);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--secondary);
+      color: white;
+      padding: 14px 28px;
+      border-radius: 30px;
+      font-weight: 500;
+      z-index: 400;
+      opacity: 0;
+      transition: all 0.35s;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="header-top">
+      🕒 Martes a Sábado · 2:00 pm – 9:00 pm · Pedidos por WhatsApp
+    </div>
+    <div class="header-main">
+      <a href="#" class="logo">
+        <img src="imagenes/logo-torrons.png" alt="Café Torrons">
+        <div>
+          <div class="logo-text">Café <span>Torrons</span></div>
+          <div class="logo-sub">Lo mejor de dos mundos</div>
+        </div>
+      </a>
+      <nav>
+        <a href="#menu" class="active">Menú</a>
+        <a href="#info">Info</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+      <button class="cart-btn" onclick="toggleCart()">
+        🛒 Carrito
+        <span class="cart-count" id="cart-count">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <img src="imagenes/logo-torrons.png" alt="Café Torrons" style="width:120px;height:120px;border-radius:50%;margin-bottom:18px;box-shadow:0 8px 25px rgba(0,0,0,0.35);background:white;">
+      <h1>Café Torrons</h1>
+      <p>Lo mejor de dos mundos · Sandwiches chilenos, churrascos, hot-dogs y chorrillana<br>
+      Café chapín, blend de Santa Rosa y Huehuetenango.</p>
+      <div class="hero-badges">
+        <div class="badge">🥪 Sandwiches</div>
+        <div class="badge">🌭 Hot-Dogs</div>
+        <div class="badge">🍟 Chorrillana</div>
+        <div class="badge">☕ Café chapín</div>
+        <div class="badge">🚚 Delivery</div>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <!-- Note about images -->
+    <div class="upload-note" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">
+      <strong>✅ Menú actualizado</strong>
+      Sandwiches, Hot-Dogs, Bebidas y Turrones de chocolate. Las fotos de bebidas y turrones se pueden agregar después.
+    </div>
+
+    <h2 class="section-title" id="menu">Nuestro Menú</h2>
+    <p class="section-sub">Precios en Quetzales (Q) · Incluye IVA</p>
+
+    <!-- Categories filter -->
+    <div class="categories">
+      <button class="cat-btn active" onclick="filterCategory('all')">Todos</button>
+      <button class="cat-btn" onclick="filterCategory('churrasco')">Churrascos</button>
+      <button class="cat-btn" onclick="filterCategory('hotdog')">Hot-Dogs</button>
+      <button class="cat-btn" onclick="filterCategory('papas')">Papas fritas</button>
+      <button class="cat-btn" onclick="filterCategory('bebidas')">Bebidas</button>
+      <button class="cat-btn" onclick="filterCategory('turrones')">Turrones</button>
+      <button class="cat-btn" onclick="filterCategory('otros')">Otros</button>
+    </div>
+
+    <!-- Products -->
+    <div class="products-grid" id="products-grid">
+      <!-- Products will be rendered by JS -->
+    </div>
+
+    <!-- Info -->
+    <div class="info-section" id="info">
+      <div class="info-card" id="contacto">
+        <h3>📞 Contacto & Pedidos</h3>
+        <p>WhatsApp: <a href="https://wa.me/50254602806" target="_blank" style="color:var(--primary);font-weight:600;">+502 5460 2806</a><br>
+        Correo: ventas@torronsguatemala.com</p>
+      </div>
+      <div class="info-card">
+        <h3>🕒 Horario</h3>
+        <p><strong>Martes a Sábado</strong><br>
+        2:00 pm – 9:00 pm</p>
+      </div>
+      <div class="info-card">
+        <h3>🚚 Envíos</h3>
+        <p>Envío fijo a toda la capital: <strong>Q 30.00</strong><br>
+        Se realiza por <strong>InDrive</strong> o <strong>Uber</strong>.</p>
+      </div>
+      <div class="info-card">
+        <h3>💳 Formas de pago</h3>
+        <p>Solo tarjeta <strong>Visa</strong> o <strong>Mastercard</strong>.<br>
+        Después de confirmar el pedido te enviamos el link de <strong>Paggo</strong> para pagar.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <img src="imagenes/logo-torrons.png" alt="Café Torrons" style="width:64px;height:64px;border-radius:50%;margin-bottom:12px;background:white;">
+    <p><strong>Café Torrons</strong> · Lo mejor de dos mundos</p>
+    <p style="margin-top:6px;opacity:0.8;font-size:0.9rem;">
+      Comida chilena en Guatemala · <a href="https://torronsguatemala.com" target="_blank">torronsguatemala.com</a>
+    </p>
+  </footer>
+
+  <!-- Cart Overlay & Sidebar -->
+  <div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+  <aside class="cart-sidebar" id="cart-sidebar">
+    <div class="cart-header">
+      <h2>🛒 Tu Pedido</h2>
+      <button class="close-cart" onclick="toggleCart()">✕</button>
+    </div>
+    <div class="cart-items" id="cart-items">
+      <!-- Cart items -->
+    </div>
+    <div class="cart-footer">
+      <div class="cart-breakdown" id="cart-breakdown">
+        <div class="cart-row">
+          <span>Subtotal</span>
+          <span id="cart-subtotal">Q 0.00</span>
+        </div>
+        <div class="cart-row">
+          <span>Envío (Capital)</span>
+          <span id="cart-delivery">Q 30.00</span>
+        </div>
+        <div class="cart-total">
+          <span>Total</span>
+          <span id="cart-total">Q 0.00</span>
+        </div>
+      </div>
+      <button class="checkout-btn" id="checkout-btn" onclick="openCheckoutForm()" disabled>
+        📱 Continuar con el pedido
+      </button>
+    </div>
+  </aside>
+
+  <!-- Checkout Modal -->
+  <div class="checkout-overlay" id="checkout-overlay">
+    <div class="checkout-modal">
+      <div class="checkout-header">
+        <h2>📦 Datos de envío</h2>
+        <button class="close-cart" onclick="closeCheckoutForm()">✕</button>
+      </div>
+      <div class="checkout-body">
+        <p class="checkout-intro">Completa tus datos para enviar el pedido por WhatsApp:</p>
+        
+        <label for="customer-name">Nombre completo *</label>
+        <input type="text" id="customer-name" placeholder="Ej: Juan Pérez" required>
+
+        <label for="customer-phone">Número de contacto *</label>
+        <input type="tel" id="customer-phone" placeholder="Ej: 5460 2806" required>
+
+        <label for="customer-address">Dirección completa *</label>
+        <textarea id="customer-address" rows="3" placeholder="Calle, avenida, número de casa, colonia, zona..." required></textarea>
+
+        <label for="customer-maps">Link de Google Maps / ubicación (recomendado)</label>
+        <input type="url" id="customer-maps" placeholder="Pega aquí el link de Google Maps">
+        <p class="maps-help">
+          💡 Abre <a href="https://maps.google.com" target="_blank">Google Maps</a>, busca tu dirección, toca “Compartir” → “Copiar enlace” y pégalo aquí. Así confirmamos la ubicación exacta.
+        </p>
+
+        <div class="order-summary-mini" id="order-summary-mini"></div>
+      </div>
+      <div class="checkout-footer">
+        <button class="checkout-btn" onclick="confirmAndSendWhatsApp()">
+          📱 Confirmar y enviar por WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Stock Panel -->
+  <button class="admin-stock-btn" onclick="openStockAdmin()" title="Administrar stock">⚙️</button>
+  <div class="checkout-overlay" id="stock-overlay">
+    <div class="checkout-modal" style="max-width:480px;">
+      <div class="checkout-header">
+        <h2>📦 Control de stock</h2>
+        <button class="close-cart" onclick="closeStockAdmin()">✕</button>
+      </div>
+      <div class="checkout-body">
+        <p class="checkout-intro">Marca los productos disponibles o agotados. Los cambios se sincronizan en <strong>tiempo real</strong> con todos los clientes.</p>
+        <div id="stock-list"></div>
+      </div>
+      <div class="checkout-footer">
+        <button class="checkout-btn" style="background:#333;" onclick="closeStockAdmin()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sweetener choice modal -->
+  <div class="checkout-overlay" id="sweetener-overlay">
+    <div class="checkout-modal" style="max-width:360px;">
+      <div class="checkout-header">
+        <h2 id="sweetener-title">¿Cómo lo prefieres?</h2>
+        <button class="close-cart" onclick="closeSweetenerModal()">✕</button>
+      </div>
+      <div class="checkout-body" style="padding-bottom:8px;">
+        <p class="checkout-intro" id="sweetener-product-name" style="margin-bottom:16px;"></p>
+        <button class="sweetener-btn" onclick="confirmSweetener('con azúcar')">🍬 Con azúcar</button>
+        <button class="sweetener-btn" onclick="confirmSweetener('con endulzante')">🌿 Con endulzante</button>
+        <button class="sweetener-btn" onclick="confirmSweetener('sin endulzar')">☕ Sin endulzar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Combo extras modal -->
+  <div class="checkout-overlay" id="extras-overlay">
+    <div class="checkout-modal" style="max-width:400px;">
+      <div class="checkout-header">
+        <h2>¿Quieres agregar algo más?</h2>
+        <button class="close-cart" onclick="closeExtrasModal()">✕</button>
+      </div>
+      <div class="checkout-body">
+        <p class="checkout-intro" id="extras-main-name" style="margin-bottom:12px;font-weight:600;"></p>
+        <div id="extras-list"></div>
+        <div class="extras-subtotal" id="extras-subtotal">Subtotal: Q 0.00</div>
+      </div>
+      <div class="checkout-footer">
+        <button class="checkout-btn" onclick="confirmExtrasToCart()">🛒 Agregar a la canasta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ========== MENÚ DATA ==========
+    const products = [
+      // Churrascos
+      {
+        id: 1,
+        name: "Churrasco con Queso",
+        desc: "Clásico churrasco de res con queso.",
+        price: 27,
+        category: "churrasco",
+        emoji: "🥩",
+        image: "imagenes/churrasco-queso.jpg",
+        offerExtras: true
+      },
+      {
+        id: 2,
+        name: "Churrasco Chacarero",
+        desc: "Res, tomate, ejote y chile.",
+        price: 27,
+        category: "churrasco",
+        emoji: "🥩",
+        image: "imagenes/churrasco-chacarero.jpg",
+        offerExtras: true
+      },
+      {
+        id: 3,
+        name: "Churrasco Italiano",
+        desc: "Res, aguacate, tomate y mayonesa.",
+        price: 30,
+        category: "churrasco",
+        emoji: "🥩",
+        image: "imagenes/churrasco-italiano.jpg",
+        offerExtras: true
+      },
+      {
+        id: 4,
+        name: "Churrasco Torrons",
+        desc: "Res, tomate, aguacate, chucrut y mayonesa.",
+        price: 33,
+        category: "churrasco",
+        emoji: "🥩",
+        image: "imagenes/churrasco-torrons.jpg",
+        offerExtras: true
+      },
+      // Hot-Dogs
+      {
+        id: 5,
+        name: "Hot-Dog Solo",
+        desc: "Salchicha clásica.",
+        price: 10,
+        category: "hotdog",
+        emoji: "🌭",
+        image: "imagenes/hotdog-solo.jpg",
+        offerExtras: true
+      },
+      {
+        id: 6,
+        name: "Hot-Dog Completo",
+        desc: "Salchicha, chucrut, tomate y mayonesa.",
+        price: 15,
+        category: "hotdog",
+        emoji: "🌭",
+        image: "imagenes/hotdog-completo.jpg",
+        offerExtras: true
+      },
+      {
+        id: 7,
+        name: "Hot-Dog Italiano",
+        desc: "Salchicha, tomate, aguacate y mayonesa.",
+        price: 20,
+        category: "hotdog",
+        emoji: "🌭",
+        image: "imagenes/hotdog-italiano.jpg",
+        offerExtras: true
+      },
+      {
+        id: 8,
+        name: "Hot-Dog Torrons",
+        desc: "Salchicha, tomate, aguacate, chucrut y mayonesa.",
+        price: 23,
+        category: "hotdog",
+        emoji: "🌭",
+        image: "imagenes/hotdog-torrons.jpg",
+        offerExtras: true
+      },
+      // Otros
+      {
+        id: 9,
+        name: "Choripán",
+        desc: "Pan de agua con chorizo extremeño y pebre.",
+        price: 20,
+        category: "otros",
+        emoji: "🥖",
+        image: "imagenes/choripan.jpg",
+        offerExtras: true
+      },
+      {
+        id: 10,
+        name: "Ave Mayo",
+        desc: "Pan de hamburguesa con pechuga de pollo, chile pimiento y mayonesa.",
+        price: 20,
+        category: "otros",
+        emoji: "🍗",
+        image: "imagenes/ave-mayo.jpg",
+        offerExtras: true
+      },
+      {
+        id: 11,
+        name: "Chorrillana",
+        desc: "Papas fritas con cebolla caramelizada, churrasco, chorizo y huevo frito.",
+        price: 50,
+        category: "papas",
+        emoji: "🍟",
+        image: "imagenes/chorrillana.jpg"
+      },
+      {
+        id: 12,
+        name: "Papas Fritas",
+        desc: "Porción de papas fritas.",
+        price: 20,
+        category: "papas",
+        emoji: "🍟",
+        image: "imagenes/papas-fritas.jpg"
+      },
+      {
+        id: 28,
+        name: "Papas Fritas 100 g",
+        desc: "Porción individual de papas fritas (100 g).",
+        price: 10,
+        category: "papas",
+        emoji: "🍟",
+        image: "imagenes/papas-fritas.jpg"
+      },
+      {
+        id: 13,
+        name: "Salchipapa",
+        desc: "Papas fritas con salchicha.",
+        price: 28,
+        category: "papas",
+        emoji: "🍟",
+        image: "imagenes/salchipapa.jpg"
+      },
+      // Bebidas
+      {
+        id: 14,
+        name: "Café",
+        desc: "Café tradicional.",
+        price: 15,
+        category: "bebidas",
+        emoji: "☕",
+        image: "imagenes/bebida-cafe.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 27,
+        name: "Café con leche",
+        desc: "Café con leche caliente.",
+        price: 20,
+        category: "bebidas",
+        emoji: "☕",
+        image: "imagenes/bebida-latte.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 15,
+        name: "Café espresso",
+        desc: "Espresso clásico (1 oz).",
+        price: 15,
+        category: "bebidas",
+        emoji: "☕",
+        image: "imagenes/bebida-espresso.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 16,
+        name: "Capuccino",
+        desc: "Espresso con leche vaporizada y espuma (6 oz).",
+        price: 20,
+        category: "bebidas",
+        emoji: "☕",
+        image: "imagenes/bebida-capuccino.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 17,
+        name: "Frapuccino",
+        desc: "Bebida fría de café batido (10 oz).",
+        price: 25,
+        category: "bebidas",
+        emoji: "🧊",
+        image: "imagenes/bebida-frapuccino.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 18,
+        name: "Latte",
+        desc: "Espresso con leche vaporizada (10 oz).",
+        price: 25,
+        category: "bebidas",
+        emoji: "☕",
+        image: "imagenes/bebida-latte.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 19,
+        name: "Shakerato",
+        desc: "Espresso en coctelera.",
+        price: 20,
+        category: "bebidas",
+        emoji: "🍸",
+        image: "imagenes/bebida-shakerato.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 20,
+        name: "Affogato",
+        desc: "Café y helado de vainilla.",
+        price: 28,
+        category: "bebidas",
+        emoji: "🍨",
+        image: "imagenes/bebida-affogato.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 21,
+        name: "Mocaccino",
+        desc: "Café con chocolate y leche.",
+        price: 28,
+        category: "bebidas",
+        emoji: "☕",
+        image: "imagenes/bebida-mocaccino.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 22,
+        name: "Chocolate Mixco",
+        desc: "Con azúcar, canela y cacao (10 oz).",
+        price: 18,
+        category: "bebidas",
+        emoji: "🍫",
+        image: "imagenes/bebida-chocolate-mixco.jpg",
+        needsSweetener: true
+      },
+      {
+        id: 30,
+        name: "Agua mineral",
+        desc: "Agua mineral Salutaris.",
+        price: 10,
+        category: "bebidas",
+        emoji: "💧",
+        image: "imagenes/bebida-agua-mineral.jpg"
+      },
+      {
+        id: 24,
+        name: "Coca-Cola normal",
+        desc: "Coca-Cola clásica en lata.",
+        price: 10,
+        category: "bebidas",
+        emoji: "🥤",
+        image: "imagenes/bebida-coca-cola.jpg"
+      },
+      {
+        id: 23,
+        name: "Agua Pura 500cc",
+        desc: "Botella de agua pura 500 ml.",
+        price: 5,
+        category: "bebidas",
+        emoji: "💧",
+        image: "imagenes/bebida-agua-pura.jpg"
+      },
+      // Turrones de chocolate
+      {
+        id: 25,
+        name: "Chocolate con Berries",
+        desc: "55% cacao Belga con arándanos deshidratados.",
+        price: 20,
+        category: "turrones",
+        emoji: "🍫",
+        image: "imagenes/turron-berries.png"
+      },
+      {
+        id: 26,
+        name: "Chocolate con Leche y Coco",
+        desc: "35% cacao Belga con coco rallado.",
+        price: 20,
+        category: "turrones",
+        emoji: "🥥",
+        image: "imagenes/turron-coco.png"
+      }
+    ];
+
+    // ========== CART ==========
+    let cart = JSON.parse(localStorage.getItem('torronsCart') || '[]');
+
+    function saveCart() {
+      localStorage.setItem('torronsCart', JSON.stringify(cart));
+      updateCartUI();
+    }
+
+    let pendingProductId = null;
+    let extrasMainProduct = null;
+    let extrasQty = {};
+
+    // Extras al precio de acompañamiento / combo
+    const COMBO_EXTRAS = [
+      { key: 'papas100', name: 'Papas fritas 100 g', price: 8, emoji: '🍟' },
+      { key: 'coca', name: 'Coca-Cola', price: 7, emoji: '🥤' },
+      { key: 'agua', name: 'Agua pura', price: 4, emoji: '💧' },
+      { key: 'soda', name: 'Agua soda', price: 7, emoji: '🫧' },
+      { key: 'cafe', name: 'Café americano', price: 8, emoji: '☕' }
+    ];
+
+    function addToCart(id) {
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      if (!isInStock(id)) {
+        showToast('Este producto está agotado');
+        return;
+      }
+
+      if (product.needsSweetener) {
+        pendingProductId = id;
+        document.getElementById('sweetener-product-name').textContent = product.name + ' — Q' + product.price;
+        document.getElementById('sweetener-overlay').classList.add('open');
+        return;
+      }
+
+      if (product.offerExtras) {
+        openExtrasModal(product);
+        return;
+      }
+
+      addProductToCart(product, null);
+    }
+
+    function openExtrasModal(product) {
+      extrasMainProduct = product;
+      extrasQty = {};
+      COMBO_EXTRAS.forEach(e => { extrasQty[e.key] = 0; });
+      document.getElementById('extras-main-name').textContent =
+        product.name + ' — Q ' + product.price.toFixed(2);
+      renderExtrasList();
+      updateExtrasSubtotal();
+      document.getElementById('extras-overlay').classList.add('open');
+    }
+
+    function closeExtrasModal() {
+      document.getElementById('extras-overlay').classList.remove('open');
+      extrasMainProduct = null;
+    }
+
+    function changeExtraQty(key, delta) {
+      // Máximo 1 unidad por cada extra del submenú
+      extrasQty[key] = Math.max(0, Math.min(1, (extrasQty[key] || 0) + delta));
+      renderExtrasList();
+      updateExtrasSubtotal();
+    }
+
+    function renderExtrasList() {
+      const list = document.getElementById('extras-list');
+      list.innerHTML = COMBO_EXTRAS.map(e => `
+        <div class="extra-row">
+          <div class="extra-info">
+            <div class="extra-emoji">${e.emoji}</div>
+            <div>
+              <div class="extra-name">${e.name}</div>
+              <div class="extra-price">Q ${e.price.toFixed(2)}</div>
+            </div>
+          </div>
+          <div class="extra-qty">
+            <button type="button" onclick="changeExtraQty('${e.key}', -1)">−</button>
+            <span>${extrasQty[e.key] || 0}</span>
+            <button type="button" onclick="changeExtraQty('${e.key}', 1)">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateExtrasSubtotal() {
+      if (!extrasMainProduct) return;
+      let total = extrasMainProduct.price;
+      COMBO_EXTRAS.forEach(e => {
+        total += e.price * (extrasQty[e.key] || 0);
+      });
+      document.getElementById('extras-subtotal').textContent =
+        'Subtotal: Q ' + total.toFixed(2);
+    }
+
+    function confirmExtrasToCart() {
+      if (!extrasMainProduct) return;
+
+      // Producto principal
+      const mainKey = String(extrasMainProduct.id);
+      const mainExisting = cart.find(item => item.cartKey === mainKey);
+      if (mainExisting) mainExisting.qty += 1;
+      else {
+        cart.push({
+          id: extrasMainProduct.id,
+          cartKey: mainKey,
+          name: extrasMainProduct.name,
+          price: extrasMainProduct.price,
+          qty: 1,
+          option: null
+        });
+      }
+
+      // Extras
+      COMBO_EXTRAS.forEach(e => {
+        const qty = extrasQty[e.key] || 0;
+        if (qty <= 0) return;
+        const cartKey = 'extra_' + e.key;
+        const existing = cart.find(item => item.cartKey === cartKey);
+        if (existing) existing.qty += qty;
+        else {
+          cart.push({
+            id: cartKey,
+            cartKey: cartKey,
+            name: e.name,
+            price: e.price,
+            qty: qty,
+            option: null
+          });
+        }
+      });
+
+      saveCart();
+      showToast('✓ Pedido agregado a la canasta');
+      closeExtrasModal();
+    }
+
+    function closeSweetenerModal() {
+      document.getElementById('sweetener-overlay').classList.remove('open');
+      pendingProductId = null;
+    }
+
+    function confirmSweetener(option) {
+      const product = products.find(p => p.id === pendingProductId);
+      if (!product) return;
+      closeSweetenerModal();
+      addProductToCart(product, option);
+    }
+
+    function addProductToCart(product, option) {
+      const cartKey = option ? `${product.id}_${option}` : String(product.id);
+      const displayName = option ? `${product.name} (${option})` : product.name;
+
+      const existing = cart.find(item => item.cartKey === cartKey);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({
+          id: product.id,
+          cartKey: cartKey,
+          name: displayName,
+          price: product.price,
+          qty: 1,
+          option: option || null
+        });
+      }
+      saveCart();
+      showToast(`✓ ${displayName} agregado`);
+    }
+
+    function changeQty(cartKey, delta) {
+      const item = cart.find(i => (i.cartKey || String(i.id)) === cartKey);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) {
+        cart = cart.filter(i => (i.cartKey || String(i.id)) !== cartKey);
+      }
+      saveCart();
+    }
+
+    function removeFromCart(cartKey) {
+      cart = cart.filter(i => (i.cartKey || String(i.id)) !== cartKey);
+      saveCart();
+    }
+
+    const DELIVERY_FEE = 30;
+
+    function getCartSubtotal() {
+      return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    }
+
+    function getCartTotal() {
+      return getCartSubtotal() + (cart.length > 0 ? DELIVERY_FEE : 0);
+    }
+
+    function getCartCount() {
+      return cart.reduce((sum, item) => sum + item.qty, 0);
+    }
+
+    // ========== FIREBASE STOCK (tiempo real) ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyB5NHQqpKBUCiJH3GHfkLEmTd0Q69PPKK8",
+      authDomain: "cafe-torrons.firebaseapp.com",
+      databaseURL: "https://cafe-torrons-default-rtdb.firebaseio.com",
+      projectId: "cafe-torrons",
+      storageBucket: "cafe-torrons.firebasestorage.app",
+      messagingSenderId: "157355471209",
+      appId: "1:157355471209:web:6f25f061685317b3034df8"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const stockRef = db.ref('stock');
+
+    // Caché local del stock (se actualiza en tiempo real desde Firebase)
+    let stockCache = {};
+
+    function isInStock(id) {
+      if (stockCache.hasOwnProperty(id)) return stockCache[id];
+      return true; // por defecto disponible
+    }
+
+    function setStock(id, available) {
+      // Escribe en Firebase → todos los clientes lo ven al instante
+      stockRef.child(String(id)).set(available);
+    }
+
+    // Escucha cambios en tiempo real
+    stockRef.on('value', (snapshot) => {
+      const data = snapshot.val() || {};
+      stockCache = {};
+      Object.keys(data).forEach(key => {
+        stockCache[key] = data[key];
+        // también por número por si el id viene como string
+        stockCache[Number(key)] = data[key];
+      });
+      renderProducts(currentFilter);
+      if (document.getElementById('stock-overlay')?.classList.contains('open')) {
+        renderStockPanel();
+      }
+    });
+
+    let currentFilter = 'all';
+
+    function renderProducts(filter = 'all') {
+      currentFilter = filter;
+      const grid = document.getElementById('products-grid');
+      const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
+
+      grid.innerHTML = filtered.map(p => {
+        const available = isInStock(p.id);
+        const catLabel =
+          p.category === 'churrasco' ? 'Churrasco' :
+          p.category === 'hotdog' ? 'Hot-Dog' :
+          p.category === 'papas' ? 'Papas fritas' :
+          p.category === 'bebidas' ? 'Bebida' :
+          p.category === 'turrones' ? 'Turrón' : 'Especial';
+        const badge = available ? '' : '<div class="soldout-badge">Agotado</div>';
+        const imgHtml = p.image
+          ? '<img src="' + p.image + '" alt="' + p.name + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+            '<div class="placeholder" style="display:none">' + p.emoji + '</div>'
+          : '<div class="placeholder">' + p.emoji + '</div>';
+        const btnHtml = available
+          ? '<button class="add-btn" onclick="addToCart(' + p.id + ')">+ Agregar</button>'
+          : '<button class="add-btn soldout-btn" disabled>Agotado</button>';
+
+        return (
+          '<div class="product-card ' + (available ? '' : 'out-of-stock') + '" data-category="' + p.category + '">' +
+            '<div class="product-img">' + badge + imgHtml + '</div>' +
+            '<div class="product-body">' +
+              '<div class="product-cat">' + catLabel + '</div>' +
+              '<div class="product-name">' + p.name + '</div>' +
+              '<div class="product-desc">' + p.desc + '</div>' +
+              '<div class="product-footer">' +
+                '<div class="product-price"><span>Q</span> ' + p.price.toFixed(2) + '</div>' +
+                btnHtml +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function updateCartUI() {
+      const countEl = document.getElementById('cart-count');
+      const itemsEl = document.getElementById('cart-items');
+      const subtotalEl = document.getElementById('cart-subtotal');
+      const deliveryEl = document.getElementById('cart-delivery');
+      const totalEl = document.getElementById('cart-total');
+      const checkoutBtn = document.getElementById('checkout-btn');
+
+      countEl.textContent = getCartCount();
+
+      if (cart.length === 0) {
+        itemsEl.innerHTML = `
+          <div class="cart-empty">
+            <div class="cart-empty-icon">🛒</div>
+            <p>Tu carrito está vacío</p>
+            <p style="font-size:0.85rem;margin-top:8px;">Agrega algo delicioso del menú</p>
+          </div>
+        `;
+        checkoutBtn.disabled = true;
+        subtotalEl.textContent = 'Q 0.00';
+        deliveryEl.textContent = 'Q 0.00';
+        totalEl.textContent = 'Q 0.00';
+      } else {
+        itemsEl.innerHTML = cart.map(item => {
+          const key = item.cartKey || String(item.id);
+          return `
+          <div class="cart-item">
+            <div class="cart-item-info">
+              <div class="cart-item-name">${item.name}</div>
+              <div class="cart-item-price">Q ${(item.price * item.qty).toFixed(2)}</div>
+              <div class="cart-item-qty">
+                <button class="qty-btn" onclick="changeQty('${key}', -1)">−</button>
+                <span>${item.qty}</span>
+                <button class="qty-btn" onclick="changeQty('${key}', 1)">+</button>
+              </div>
+              <button class="remove-item" onclick="removeFromCart('${key}')">Eliminar</button>
+            </div>
+          </div>
+        `}).join('');
+        checkoutBtn.disabled = false;
+        subtotalEl.textContent = `Q ${getCartSubtotal().toFixed(2)}`;
+        deliveryEl.textContent = `Q ${DELIVERY_FEE.toFixed(2)}`;
+        totalEl.textContent = `Q ${getCartTotal().toFixed(2)}`;
+      }
+    }
+
+    function filterCategory(cat) {
+      document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderProducts(cat);
+    }
+
+    // ========== ADMIN STOCK ==========
+    const ADMIN_PIN = '2806';
+
+    function openStockAdmin() {
+      const pin = prompt('Ingresa el PIN de administrador:');
+      if (pin === ADMIN_PIN) {
+        document.getElementById('stock-overlay').classList.add('open');
+        renderStockPanel();
+      } else if (pin !== null) {
+        showToast('PIN incorrecto');
+      }
+    }
+
+    function closeStockAdmin() {
+      document.getElementById('stock-overlay').classList.remove('open');
+    }
+
+    function renderStockPanel() {
+      const list = document.getElementById('stock-list');
+      list.innerHTML = products.map(p => {
+        const available = isInStock(p.id);
+        return `
+          <div class="stock-row">
+            <div class="stock-info">
+              <strong>${p.name}</strong>
+              <span>Q ${p.price}</span>
+            </div>
+            <button class="stock-toggle ${available ? 'on' : 'off'}" onclick="setStock(${p.id}, ${!available})">
+              ${available ? '✅ Disponible' : '❌ Agotado'}
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleCart() {
+      document.getElementById('cart-overlay').classList.toggle('open');
+      document.getElementById('cart-sidebar').classList.toggle('open');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function openCheckoutForm() {
+      if (cart.length === 0) return;
+
+      // Mostrar resumen del pedido
+      const summary = document.getElementById('order-summary-mini');
+      let html = '<strong>Resumen del pedido:</strong><br>';
+      cart.forEach(item => {
+        html += `• ${item.qty}x ${item.name} — Q ${(item.price * item.qty).toFixed(2)}<br>`;
+      });
+      html += `<br>Subtotal: Q ${getCartSubtotal().toFixed(2)}<br>`;
+      html += `Envío (Capital): Q ${DELIVERY_FEE.toFixed(2)}<br>`;
+      html += `<strong>Total a pagar: Q ${getCartTotal().toFixed(2)}</strong>`;
+      summary.innerHTML = html;
+
+      document.getElementById('checkout-overlay').classList.add('open');
+    }
+
+    function closeCheckoutForm() {
+      document.getElementById('checkout-overlay').classList.remove('open');
+    }
+
+    function confirmAndSendWhatsApp() {
+      const name = document.getElementById('customer-name').value.trim();
+      const phone = document.getElementById('customer-phone').value.trim();
+      const address = document.getElementById('customer-address').value.trim();
+      const maps = document.getElementById('customer-maps').value.trim();
+
+      if (!name || !phone || !address) {
+        showToast('Por favor completa Nombre, Teléfono y Dirección');
+        return;
+      }
+
+      let message = `¡Hola! Quiero hacer un pedido en *Torrons Gt* 🇨🇱%0A%0A`;
+      
+      message += `*Datos del cliente:*%0A`;
+      message += `👤 Nombre: ${name}%0A`;
+      message += `📱 Contacto: ${phone}%0A`;
+      message += `📍 Dirección: ${address}%0A`;
+      if (maps) {
+        message += `🗺️ Ubicación: ${maps}%0A`;
+      }
+      message += `%0A`;
+
+      message += `*Mi pedido:*%0A`;
+      cart.forEach(item => {
+        message += `• ${item.qty}x ${item.name} - Q ${(item.price * item.qty).toFixed(2)}%0A`;
+      });
+      message += `%0ASubtotal productos: Q ${getCartSubtotal().toFixed(2)}%0A`;
+      message += `Envío (Capital): Q ${DELIVERY_FEE.toFixed(2)}%0A`;
+      message += `*Total a pagar: Q ${getCartTotal().toFixed(2)}*%0A%0A`;
+      message += `💳 *Forma de pago:* solo tarjeta Visa o Mastercard.%0A`;
+      message += `Después de confirmar el pedido les enviaremos el link de Paggo para pagar.%0A%0A`;
+      message += `Por favor confirmen disponibilidad. ¡Gracias!`;
+
+      const whatsappNumber = "50254602806";
+      window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
+      
+      closeCheckoutForm();
+      toggleCart(); // cerrar carrito también
+    }
+
+    // Init
+    renderProducts();
+    updateCartUI();
+  </script>
+</body>
+</html>
