@@ -1610,20 +1610,26 @@
 
     function revisarFlecha(modal) {
       if (!modal) return;
-      let b = modal.querySelector('.scroll-hint');
+      let b = modal._flecha;
       const falta = modal.scrollHeight - modal.clientHeight - modal.scrollTop > 40;
       if (!b) {
         b = document.createElement('button'); b.className = 'scroll-hint'; b.type = 'button'; b.textContent = '⬇️ Baja para continuar';
         b.onclick = () => modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
         modal.parentElement.appendChild(b);
-        modal.addEventListener('scroll', () => revisarFlecha(modal));
+        modal._flecha = b;
+        modal.addEventListener('scroll', () => revisarFlecha(modal), { passive: true });
       }
-      b.style.display = falta ? 'block' : 'none';
+      const d = falta ? 'block' : 'none';
+      if (b.style.display !== d) b.style.display = d;
     }
     function activarFlechas() {
       document.querySelectorAll('.checkout-overlay.open .checkout-modal').forEach(revisarFlecha);
     }
-    new MutationObserver(() => setTimeout(activarFlechas, 350)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    let flechaPend = null;
+    new MutationObserver(muts => {
+      if (!muts.some(m => m.target.classList && (m.target.classList.contains('checkout-overlay') || m.target.id === 'cart-sidebar'))) return;
+      clearTimeout(flechaPend); flechaPend = setTimeout(activarFlechas, 350);
+    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
     window.addEventListener('resize', activarFlechas);
 
     function closeExtrasModal() {
