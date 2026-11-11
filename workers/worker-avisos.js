@@ -117,19 +117,23 @@ function datosPedido(key, o) {
 }
 
 // Minutos de cocina del pedido: el plato más lento (se cocinan a la vez) + 1 min por cada plato extra
-const PREP_ID = { '11': 14, '13': 10, '12': 8, '28': 7, '9': 8, '10': 6 }; // chorrillana, salchipapa, papas, choripán, ave mayo
-const PREP_CATEGORIA = { churrasco: 10, hotdog: 6, otros: 8, papas: 8, bebidas: 4, turrones: 1, crea: 10 };
+const PREP_ID = { '1': 4, '11': 14, '13': 12, '12': 11, '28': 10, '9': 8, '10': 6, combo_papas: 10, combo_cafe: 4 };
+const PREP_CATEGORIA = { churrasco: 10, hotdog: 6, otros: 8, papas: 10, bebidas: 4, turrones: 1, crea: 10 };
+// Minutos de cocina del pedido: lo más lento (todo se cocina a la vez, incluidas las papas del combo)
+// + 1 min por cada plato principal adicional
 function minutosPreparacion(o, prep) {
-  const items = Object.values(o.items || {}).filter(i => !i.extra);
+  const items = Object.values(o.items || {});
   if (!items.length) return 5;
   const min = items.map(i => {
     const id = String(i.id || '');
     if (prep[id] != null) return Number(prep[id]) || 0;
-    if (i.detalle || /^c/.test(id) || /crea/i.test(i.nombre || '')) return Number(prep.crea) || PREP_CATEGORIA.crea;
-    return PREP_ID[id] || PREP_CATEGORIA[i.cat] || 8;
+    if (PREP_ID[id] != null) return PREP_ID[id];
+    if (i.extra) return /^combo_/.test(id) ? 0 : 0; // bebidas del combo: listas al instante
+    if (i.detalle || /crea/i.test(i.nombre || '')) return Number(prep.crea) || PREP_CATEGORIA.crea;
+    return PREP_CATEGORIA[i.cat] || 8;
   });
-  const unidades = items.reduce((a, i) => a + (Number(i.cant) || 1), 0);
-  return Math.min(40, Math.max(...min) + Math.max(0, unidades - 1));
+  const principales = items.filter(i => !i.extra).reduce((a, i) => a + (Number(i.cant) || 1), 0);
+  return Math.min(40, Math.max(...min) + Math.max(0, principales - 1));
 }
 
 // Crea el viaje solo si todavía no existe (escritura condicional con ETag)

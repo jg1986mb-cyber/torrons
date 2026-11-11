@@ -326,7 +326,7 @@
         </div>
         <div class="card">
           <h3 style="margin-bottom:6px;">⏱️ Cuándo pedir motorista</h3>
-          <p class="hint">El sistema calcula cuánto tarda cada pedido (el plato más lento + 1 min por cada plato adicional) y llama al motorista para que llegue justo cuando esté listo.</p>
+          <p class="hint">El sistema calcula cuánto tarda cada pedido (lo más lento, contando las papas del combo, + 1 min por cada plato adicional) y llama al motorista para que llegue justo cuando esté listo.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div><label>Pedir motorista</label>
               <select id="mt-modo" class="txt">
@@ -1207,8 +1207,8 @@
       const ej = k => Math.max(tarifa.minimo, Math.round(tarifa.base + tarifa.porKm * k));
       const p = document.getElementById('e-ejemplo'); if (p) p.textContent = `Ejemplos: 2 km → Q${ej(2)} · 5 km → Q${ej(5)} · 10 km → Q${ej(10)}`;
     }
-    const PREP_ID = { '11': 14, '13': 10, '12': 8, '28': 7, '9': 8, '10': 6 };
-    const PREP_CAT = { churrasco: 10, hotdog: 6, otros: 8, papas: 8, bebidas: 4, turrones: 1 };
+    const PREP_ID = { '1': 4, '11': 14, '13': 12, '12': 11, '28': 10, '9': 8, '10': 6, combo_papas: 10, combo_cafe: 4 };
+    const PREP_CAT = { churrasco: 10, hotdog: 6, otros: 8, papas: 10, bebidas: 4, turrones: 1 };
     function prepDe(p) { const v = prepCfg[String(p.id)]; return v != null ? Number(v) : (PREP_ID[String(p.id)] || PREP_CAT[p.category] || 8); }
     function cargarTiempos() {
       const m = document.getElementById('mt-modo'); if (!m) return;
@@ -1218,12 +1218,14 @@
       if (lista && !lista.contains(document.activeElement)) {
         const prods = (typeof products !== 'undefined' ? products : []).filter(p => p.category !== 'bebidas' || true);
         lista.innerHTML = prods.map(p => `<span>${p.emoji || ''} ${esc(p.name)}</span><input class="txt prep-in" data-id="${p.id}" type="number" min="0" max="40" value="${prepDe(p)}">`).join('')
+          + `<span>🍟 Papas fritas del combo</span><input class="txt prep-in" data-id="combo_papas" type="number" min="0" max="40" value="${prepCfg.combo_papas != null ? prepCfg.combo_papas : 10}">`
+          + `<span>☕ Café americano del combo</span><input class="txt prep-in" data-id="combo_cafe" type="number" min="0" max="40" value="${prepCfg.combo_cafe != null ? prepCfg.combo_cafe : 4}">`
           + `<span>🛠️ Crea tu Torrons</span><input class="txt prep-in" data-id="crea" type="number" min="0" max="40" value="${prepCfg.crea != null ? prepCfg.crea : 10}">`;
       }
       const lleg = Number(cfgMoto.llegadaMin) || 10;
       const ej = document.getElementById('mt-ejemplo');
       if (ej) ej.textContent = cfgMoto.modo === 'manual' ? 'Solo se pide motorista cuando tocas el botón.' : cfgMoto.modo === 'listo' ? 'Se pide al tocar Listo (la comida espera a la moto).'
-        : `Ejemplo ${cfgMoto.modo === 'pago' ? 'desde que se aprueba el pago' : 'desde que imprimes'}: un café (4 min) → se pide de inmediato; una chorrillana (14 min) → se pide a los ${Math.max(0, 14 - lleg)} min, para que la moto llegue cuando esté lista.`;
+        : `Ejemplo ${cfgMoto.modo === 'pago' ? 'desde que se aprueba el pago' : 'desde que imprimes'}: churrasco con queso solo (4 min) → se pide de inmediato; en combo con papas (10 min) → a los ${Math.max(0, 10 - lleg)} min; chorrillana (14 min) → a los ${Math.max(0, 14 - lleg)} min. Así la moto llega cuando la comida está lista.`;
     }
     function guardarTiempos() {
       const prep = {};
