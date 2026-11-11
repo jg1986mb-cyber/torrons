@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administración | Café Torrons</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --primary: #c41e3a; --primary-dark: #9a1830; --secondary: #1a1a1a;
+      --muted: #6b6b6b; --border: #e8e4df; --bg: #f7f4f0; --ok: #2e7d32; --warn: #b26a00;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', system-ui, sans-serif; background: var(--bg); color: var(--secondary); }
+    header {
+      background: var(--secondary); color: white; padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+    header h1 span { color: #f0a868; }
+    header button { background: transparent; color: white; border: 1px solid #555; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+    main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 60px; }
+
+    /* Login */
+    .login-card { max-width: 380px; margin: 60px auto; background: white; border-radius: 16px; padding: 28px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+    .login-card h2 { color: var(--primary); margin-bottom: 6px; }
+    .login-card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 6px; }
+    input[type=email], input[type=password], input[type=number] {
+      width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.95rem; font-family: inherit;
+    }
+    input:focus { outline: none; border-color: var(--primary); }
+    .btn { background: var(--primary); color: white; border: none; border-radius: 10px; padding: 11px 16px; font-weight: 600; font-family: inherit; cursor: pointer; font-size: 0.92rem; }
+    .btn:hover { background: var(--primary-dark); }
+    .btn.full { width: 100%; margin-top: 18px; }
+    .btn.small { padding: 7px 12px; font-size: 0.82rem; }
+    .btn.ghost { background: white; color: var(--secondary); border: 1.5px solid var(--border); }
+    .error { color: var(--primary); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    .tab { padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: white; cursor: pointer; font-weight: 600; font-family: inherit; font-size: 0.9rem; }
+    .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 16px; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 14px; }
+
+    /* Productos */
+    .cat-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700; margin: 18px 0 8px; }
+    .prod-row { display: grid; grid-template-columns: 1fr 120px 150px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .prod-row:last-child { border-bottom: none; }
+    .prod-name { font-weight: 600; font-size: 0.93rem; }
+    .prod-base { font-size: 0.78rem; color: var(--muted); }
+    .price-wrap { display: flex; align-items: center; gap: 4px; }
+    .price-wrap span { font-weight: 600; color: var(--muted); }
+    .price-wrap input { padding: 8px 10px; }
+    .price-wrap input.changed { border-color: var(--warn); background: #fff8ec; }
+    .stock-btn { width: 100%; padding: 9px 10px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-family: inherit; font-size: 0.85rem; }
+    .stock-btn.on { background: #e8f5e9; color: var(--ok); }
+    .stock-btn.off { background: #fdecea; color: var(--primary); }
+    .save-bar { position: sticky; bottom: 0; background: white; border-top: 1px solid var(--border); padding: 12px 18px; display: none; justify-content: space-between; align-items: center; gap: 10px; margin: 0 -18px -18px; border-radius: 0 0 14px 14px; }
+    .save-bar.show { display: flex; }
+
+    /* Ventas */
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: white; border-radius: 14px; padding: 14px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .kpi .k-label { font-size: 0.78rem; color: var(--muted); }
+    .kpi .k-value { font-size: 1.35rem; font-weight: 700; margin-top: 2px; }
+    .kpi .k-sub { font-size: 0.78rem; color: var(--muted); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { padding: 9px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; white-space: normal; }
+    th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 600; }
+    td.zero { color: #bbb; }
+    .toolbar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.88rem; }
+    .toolbar label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; }
+
+    /* Pedidos */
+    .order { border-bottom: 1px solid var(--border); padding: 12px 0; display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; }
+    .order:last-child { border-bottom: none; }
+    .order-meta { font-size: 0.8rem; color: var(--muted); }
+    .order-items { font-size: 0.86rem; margin-top: 4px; }
+    .order-total { font-weight: 700; text-align: right; }
+    select { padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--border); font-family: inherit; font-size: 0.85rem; }
+    select.confirmado { border-color: var(--ok); color: var(--ok); }
+    select.cancelado { border-color: var(--primary); color: var(--primary); }
+
+    input.txt { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.95rem; font-family: inherit; }
+    .badge-new { background: #fff; color: var(--primary); border-radius: 999px; padding: 0 7px; font-size: 0.75rem; margin-left: 4px; }
+    .tab:not(.active) .badge-new { background: var(--primary); color: #fff; }
+    .comanda { border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; background: #fffdfb; }
+    .comanda.nuevo { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(196,30,58,0.12); }
+    .comanda.cancelado { opacity: 0.55; }
+    .c-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+    .c-name { font-size: 1.1rem; font-weight: 700; }
+    .c-meta { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+    .c-addr { font-size: 0.85rem; margin-top: 6px; }
+    .c-addr a { color: var(--primary); }
+    .c-items { margin: 10px 0; padding: 10px 12px; background: white; border-radius: 10px; border: 1px dashed var(--border); font-size: 0.92rem; }
+    .c-item { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+    .c-item b { font-weight: 700; }
+    .c-sub { padding-left: 22px; color: var(--muted); font-size: 0.84rem; display: flex; justify-content: space-between; gap: 10px; }
+    .c-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .c-total { font-weight: 700; font-size: 1.05rem; }
+    .c-actions { display: flex; gap: 8px; align-items: center; }
+    .pay-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; margin-top: 6px; }
+    .pay-badge.pagado { background: #e8f5e9; color: var(--ok); }
+    .pay-badge.pendiente { background: #fff4e0; color: var(--warn); }
+    .pay-badge.efectivo { background: #eef2f7; color: #44546a; }
+    .pay-badge a { color: inherit; }
+    .days { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+    .days label { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 7px 11px; border: 1.5px solid var(--border); border-radius: 999px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+    .days input { accent-color: var(--primary); }
+    select.txt { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.95rem; font-family: inherit; background: #fff; }
+    .etapa { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; margin: 6px 6px 0 0; }
+    .etapa.recibido { background: #eef2f7; color: #44546a; }
+    .etapa.preparando { background: #fff4e0; color: var(--warn); }
+    .etapa.listo { background: #e8f5e9; color: var(--ok); }
+    .etapa.en_camino { background: #e3f2fd; color: #1565c0; }
+    .etapa.cancelado { background: #fdecea; color: var(--primary); }
+    .cx-box { background: #fdecea; border: 1.5px solid #f5c2c0; border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 0.88rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn.ok { background: var(--ok); }
+    .alarm-bar { position: sticky; top: 56px; z-index: 9; background: var(--primary); color: #fff; padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; display: none; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; animation: pulse 1s infinite; }
+    .alarm-bar button { background: #fff; color: var(--primary); border: none; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-family: inherit; cursor: pointer; }
+    @keyframes pulse { 50% { opacity: .75; } }
+    .sound-unlock { background: #3e221a; color: #fff; padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .sound-unlock button { background: #fff; color: #3e221a; border: none; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-family: inherit; cursor: pointer; }
+    .wa-link { color: #128c4b; font-weight: 700; text-decoration: none; background: #e7f8ee; padding: 1px 8px; border-radius: 999px; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--secondary); color: white; padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; transition: transform 0.3s; z-index: 100; max-width: 90vw; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .uid { font-size: 0.75rem; color: var(--muted); margin-top: 24px; text-align: center; word-break: break-all; }
+
+    @media (max-width: 600px) {
+      .prod-row { grid-template-columns: 1fr 100px; }
+      .prod-row .stock-cell { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Café <span>Torrons</span> · Administración</h1>
+    <button id="logout-btn" style="display:none;" onclick="firebase.auth().signOut()">Salir</button>
+  </header>
+
+  <main>
+    <!-- LOGIN -->
+    <section id="login-view" style="display:none;">
+      <div class="login-card">
+        <h2>Iniciar sesión</h2>
+        <p>Acceso solo para administradores.</p>
+        <form onsubmit="login(event)">
+          <label for="email">Correo</label>
+          <input type="email" id="email" autocomplete="username" required>
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" autocomplete="current-password" required>
+          <button class="btn full" type="submit">Entrar</button>
+          <div class="error" id="login-error"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- APP -->
+    <section id="app-view" style="display:none;">
+      <div class="sound-unlock" id="sound-unlock"><span>🔇 Toca para activar la alarma de pedidos en este dispositivo</span><button onclick="desbloquearSonido()">Activar sonido</button></div>
+      <div class="alarm-bar" id="alarm-bar"><span id="alarm-text">🔔 Nuevo pedido</span><button onclick="irAComandas()">Ver comanda</button></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="productos" onclick="showTab('productos')">🏷️ Precios y stock</button>
+        <button class="tab" data-tab="ventas" onclick="showTab('ventas')">📊 Ventas</button>
+        <button class="tab" data-tab="pedidos" onclick="showTab('pedidos')">🧾 Comandas <span id="new-badge" class="badge-new" style="display:none">0</span></button>
+        <button class="tab" data-tab="ajustes" onclick="showTab('ajustes')">⚙️ Ajustes</button>
+      </div>
+
+      <!-- Precios y stock -->
+      <div class="panel active" id="panel-productos">
+        <div class="card">
+          <p class="hint">Cambia el precio y presiona <strong>Guardar precios</strong>. El stock se guarda al instante. Los clientes ven los cambios en tiempo real.</p>
+          <div id="product-list"></div>
+          <div class="save-bar" id="save-bar">
+            <span id="save-count" style="font-size:0.88rem;"></span>
+            <div style="display:flex;gap:8px;">
+              <button class="btn ghost small" onclick="discardPrices()">Descartar</button>
+              <button class="btn small" onclick="savePrices()">Guardar precios</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ventas -->
+      <div class="panel" id="panel-ventas">
+        <div class="kpis" id="kpis"></div>
+        <div class="card">
+          <div class="toolbar">
+            <label><input type="checkbox" id="only-confirmed" onchange="renderSales()"> Contar solo pedidos confirmados</label>
+            <button class="btn small" style="margin-left:auto" onclick="descargarHistorial()">⬇️ Descargar historial (Excel)</button>
+          </div>
+          <p class="hint">Unidades vendidas por producto. <strong>Prom./día</strong> = últimos 30 días · <strong>Prom./semana</strong> = últimas 12 semanas · <strong>Prom./mes</strong> = meses del año en curso. Si hay menos historial, se divide entre los días que sí hay registro. Los pedidos cancelados no se cuentan.</p>
+          <div class="table-wrap"><table id="sales-table"></table></div>
+        </div>
+      </div>
+
+      <!-- Comandas -->
+      <div class="panel" id="panel-pedidos">
+        <div class="card">
+          <div class="toolbar">
+            <label><input type="radio" name="ofilter" value="activos" checked onchange="renderOrders()"> Pendientes</label>
+            <label><input type="radio" name="ofilter" value="hoy" onchange="renderOrders()"> Hoy</label>
+            <label><input type="radio" name="ofilter" value="todos" onchange="renderOrders()"> Todos</label>
+            <label style="margin-left:auto"><input type="checkbox" id="auto-print"> Imprimir automáticamente los nuevos</label>
+          </div>
+          <p class="hint">Cada pedido enviado por WhatsApp desde la página llega aquí como comanda. Usa <strong>🖨️ Imprimir</strong> para tu impresora térmica de 58 mm. Al terminar, márcalo como <strong>Confirmado</strong> (o <strong>Cancelado</strong>) para que cuente en las ventas.</p>
+          <div id="orders-list"></div>
+        </div>
+      </div>
+
+      <!-- Horario -->
+      <div class="panel" id="panel-ajustes">
+        <div class="card">
+          <h3 style="margin-bottom:6px;">🕒 Horario de atención</h3>
+          <p class="hint">Fuera de este horario la tienda <strong>no permite agregar al carrito ni enviar pedidos</strong> (hora de Guatemala).</p>
+          <label>Días de servicio</label>
+          <div class="days" id="h-days"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label for="h-abre">Abre</label><input type="time" id="h-abre" class="txt" value="14:00"></div>
+            <div><label for="h-cierra">Cierra (último pedido)</label><input type="time" id="h-cierra" class="txt" value="21:00"></div>
+          </div>
+          <label for="h-forzar">Modo</label>
+          <select id="h-forzar" class="txt">
+            <option value="auto">Automático según horario</option>
+            <option value="cerrado">Cerrado hoy (no recibir pedidos)</option>
+            <option value="abierto">Abierto siempre (ignorar horario)</option>
+          </select>
+          <label for="h-msg">Mensaje cuando está cerrado manualmente (opcional)</label>
+          <input type="text" id="h-msg" class="txt" placeholder="Ej: Hoy cerramos por evento privado. ¡Te esperamos mañana!">
+          <p class="hint" style="margin-top:10px;">Se mostrará: <strong id="h-preview"></strong></p>
+          <button class="btn" onclick="saveHorario()">Guardar horario</button>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:6px;">🔔 Alarma de pedidos nuevos</h3>
+          <p class="hint">Suena y se repite hasta que imprimas la comanda. Los pedidos con tarjeta suenan cuando el pago queda <strong>aprobado</strong>; los que no tienen link de pago, al llegar. Se guarda en este dispositivo.</p>
+          <label for="al-tono">Sonido</label>
+          <select id="al-tono" class="txt" onchange="saveAlarma()">
+            <option value="sirena">🚨 Sirena</option>
+            <option value="reloj">⏰ Despertador</option>
+            <option value="campana">🔔 Campana fuerte</option>
+            <option value="claxon">📯 Claxon</option>
+            <option value="arcade">🎮 Pitido ascendente</option>
+            <option value="voz">🗣️ Voz femenina</option>
+            <option value="voz_sirena">🗣️ Voz femenina + sirena</option>
+          </select>
+          <label for="al-vol">Volumen</label>
+          <input type="range" id="al-vol" min="0.2" max="1" step="0.1" value="1" style="width:100%;" onchange="saveAlarma()">
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            <button class="btn" onclick="probarAlarma()">▶️ Probar sonido</button>
+            <button class="btn ghost" onclick="detenerAlarma(true)">⏹️ Detener</button>
+          </div>
+          <div id="app-box" style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+            <div style="font-weight:700;margin-bottom:6px;">📱 App Torrons Cocina</div>
+            <div class="app-only" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <button class="btn" onclick="TorronsApp.openSettings()">⚙️ Voz y ajustes de la app</button>
+            </div>
+            <button class="btn ghost" onclick="probarAvisoApp()">📲 Enviar aviso de prueba al teléfono</button>
+            <div id="app-msg" style="font-size:13px;margin-top:6px;color:#666;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:6px;">↩️ Cancelaciones</h3>
+          <p class="hint">El cliente puede cancelar desde <strong>Mi pedido</strong> solo antes de que imprimas la comanda.<br>
+          • <strong>Sin pagar:</strong> se cancela sola y te avisa <strong>1 vez</strong>.<br>
+          • <strong>Ya pagado:</strong> te avisa <strong>3 veces</strong> con el nombre del cliente; aceptas y haces el reembolso total en la app de Paggo.<br>
+          • Pedidos con tarjeta que no se pagan en <strong>5 minutos</strong> se cancelan solos.</p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:6px;">💳 Pagos en línea con Paggo</h3>
+          <p class="hint">Cuando está activo, los pedidos con <strong>Delivery</strong> o <strong>Retiro en local</strong> generan su link de Paggo automáticamente y aquí se marcan como <strong>PAGADO</strong> solos.</p>
+          <label for="p-url">Dirección del servidor de pagos (Cloudflare Worker)</label>
+          <input type="url" id="p-url" class="txt" placeholder="https://torrons-pagos.TU-CUENTA.workers.dev">
+          <label for="p-key">Clave de administrador del servidor (ADMIN_KEY)</label>
+          <input type="password" id="p-key" class="txt" placeholder="Se guarda solo en este dispositivo">
+          <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:600;">
+            <input type="checkbox" id="p-activo"> Activar pagos automáticos en la tienda
+          </label>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            <button class="btn" onclick="savePagos()">Guardar</button>
+            <button class="btn ghost" onclick="probarPagos()">Probar conexión con Paggo</button>
+          </div>
+          <p class="hint" id="p-status" style="margin-top:10px;"></p>
+        </div>
+      </div>
+
+      <div class="uid" id="uid-line"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="productos.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB5NHQqpKBUCiJH3GHfkLEmTd0Q69PPKK8",
+      authDomain: "cafe-torrons.firebaseapp.com",
+      databaseURL: "https://cafe-torrons-default-rtdb.firebaseio.com",
+      projectId: "cafe-torrons",
+      storageBucket: "cafe-torrons.firebasestorage.app",
+      messagingSenderId: "157355471209",
+      appId: "1:157355471209:web:6f25f061685317b3034df8"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const CATEGORIES = {
+      churrasco: 'Churrascos', hotdog: 'Hot-Dogs', papas: 'Papas fritas',
+      bebidas: 'Bebidas', turrones: 'Turrones', otros: 'Otros'
+    };
+    // Catálogo editable: productos (clave = id) + Crea tu Torrons (clave = c_<key>)
+    const CATALOG = [];
+    products.forEach(p => CATALOG.push({ key: String(p.id), name: p.name, emoji: p.emoji || '', group: CATEGORIES[p.category] || p.category, price: p.price }));
+    CREA_BASES.forEach(b => CATALOG.push({ key: 'c_' + b.key, name: b.name, emoji: '🛠️', group: 'Crea tu Torrons · Bases', price: b.price }));
+    CREA_INGS.forEach(i => CATALOG.push({ key: 'c_' + i.key, name: i.name, emoji: '🛠️', group: 'Crea tu Torrons · Ingredientes', price: i.price }));
+    [COMBO_PAPAS].concat(COMBO_LIQUIDS).forEach(x => CATALOG.push({ key: 'x_' + x.key, name: x.name, emoji: x.emoji, group: 'Combos · extras', price: x.price }));
+    const BASE_PRICES = {};
+    CATALOG.forEach(c => { BASE_PRICES[c.key] = c.price; });
+
+    let stock = {}, prices = {}, edits = {}, orders = [];
+    let listeners = [];
+    let seguimiento = {};
+    let firstLoad = true;
+    const knownKeys = new Set();
+    const freshKeys = new Set();
+
+    // ---------- Utilidades ----------
+    function q(n) { return 'Q ' + Number(n || 0).toFixed(2); }
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+    function permError(e) {
+      console.error(e);
+      toast(String(e && e.code || e).includes('PERMISSION') ? 'Sin permiso: revisa las reglas de Firebase (tu UID está abajo).' : 'Error: ' + (e.message || e));
+    }
+
+    // ---------- Login ----------
+    function login(ev) {
+      ev.preventDefault();
+      const err = document.getElementById('login-error');
+      err.textContent = '';
+      auth.signInWithEmailAndPassword(
+        document.getElementById('email').value.trim(),
+        document.getElementById('password').value
+      ).catch(e => {
+        err.textContent = (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found')
+          ? 'Correo o contraseña incorrectos.' : 'No se pudo iniciar sesión: ' + e.message;
+      });
+    }
+
+    auth.onAuthStateChanged(user => {
+      listeners.forEach(off => off()); listeners = [];
+      document.getElementById('login-view').style.display = user ? 'none' : 'block';
+      document.getElementById('app-view').style.display = user ? 'block' : 'none';
+      document.getElementById('logout-btn').style.display = user ? 'inline-block' : 'none';
+      if (!user) return;
+      document.getElementById('uid-line').textContent = 'Sesión: ' + (user.email || '') + ' · UID: ' + user.uid;
+      listen(db.ref('stock'), s => { stock = s.val() || {}; renderProducts(); });
+      listen(db.ref('precios'), s => { prices = s.val() || {}; renderProducts(); });
+      listen(db.ref('config/horario'), s => cargarHorario(s.val() || {}));
+
+      listen(db.ref('seguimiento').orderByChild('ts').limitToLast(500), s => { seguimiento = s.val() || {}; renderOrders(); revisarAlarma(); });
+      cargarAlarma();
+      listen(db.ref('config/pagos'), s => {
+        const v = s.val() || {};
+        pagosCfg = { url: String(v.url || '').replace(/\/+$/, ''), activo: !!v.activo };
+        document.getElementById('p-url').value = pagosCfg.url;
+        document.getElementById('p-activo').checked = pagosCfg.activo;
+      });
+      document.getElementById('p-key').value = getAdminKey();
+      clearInterval(window._payLoop);
+      window._payLoop = setInterval(verificarPendientes, 20000);
+      setTimeout(verificarPendientes, 4000);
+      firstLoad = true;
+      listen(db.ref('pedidos').orderByChild('ts').limitToLast(5000), s => {
+        const list = [];
+        s.forEach(c => { list.push(Object.assign({ key: c.key }, c.val())); });
+        orders = list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        const nuevos = firstLoad ? [] : orders.filter(o => !knownKeys.has(o.key));
+        orders.forEach(o => knownKeys.add(o.key));
+        if (!firstLoad && nuevos.length) onNewOrders(nuevos);
+        firstLoad = false;
+        renderSales(); renderOrders(); revisarAlarma();
+      });
+    });
+
+    function listen(ref, cb) {
+      ref.on('value', cb, permError);
+      listeners.push(() => ref.off('value', cb));
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+    }
+
+    // ---------- Precios y stock ----------
+    function currentPrice(id) {
+      const v = Number(prices[id]);
+      return v > 0 ? v : BASE_PRICES[id];
+    }
+    function inStock(id) { return stock.hasOwnProperty(id) ? stock[id] !== false : true; }
+
+    // ---------- Pagos (Paggo) ----------
+    let pagosCfg = { url: '', activo: false };
+    function getAdminKey() { try { return localStorage.getItem('torrons_admin_key') || ''; } catch (e) { return ''; } }
+    function savePagos() {
+      const url = document.getElementById('p-url').value.trim().replace(/\/+$/, '');
+      const activo = document.getElementById('p-activo').checked;
+      const key = document.getElementById('p-key').value.trim();
+      try { localStorage.setItem('torrons_admin_key', key); } catch (e) {}
+      if (activo && !/^https:\/\//.test(url)) { toast('Escribe la dirección https:// del servidor de pagos'); return; }
+      db.ref('config/pagos').set({ url: url.slice(0, 200), activo })
+        .then(() => toast(activo ? '✅ Pagos en línea activados' : 'Pagos en línea desactivados'))
+        .catch(permError);
+    }
+    async function workerGet(path) {
+      const url = (document.getElementById('p-url').value.trim() || pagosCfg.url).replace(/\/+$/, '');
+      if (!url) throw new Error('Falta la dirección del servidor de pagos');
+      const r = await fetch(url + path, { headers: { 'X-Admin-Key': getAdminKey() } });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+      return d;
+    }
+    async function probarAvisoApp() {
+      const m = document.getElementById('app-msg');
+      const cfgUrl = pagosCfg.url || (document.getElementById('p-url') || {}).value || '';
+      const key = localStorage.getItem('torrons_admin_key') || '';
+      if (!cfgUrl || !key) { m.textContent = 'Primero configura la conexión de pagos (Worker y clave) en la pestaña de pagos.'; return; }
+      m.textContent = 'Enviando…';
+      try {
+        const r = await fetch(cfgUrl.replace(/\/+$/, '') + '/probar-aviso', { headers: { 'X-Admin-Key': key } });
+        const d = await r.json();
+        m.textContent = d.ok ? '✅ Aviso enviado. Debe sonar en el teléfono con la app instalada.' : '❌ No se pudo: ' + (d.error || 'revisa FIREBASE_SA en Cloudflare');
+      } catch (e) { m.textContent = '❌ Sin conexión con el Worker'; }
+    }
+    if (window.TorronsApp) document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('.app-only').forEach(e => e.style.display = 'flex'));
+    async function probarPagos() {
+      const st = document.getElementById('p-status');
+      try { localStorage.setItem('torrons_admin_key', document.getElementById('p-key').value.trim()); } catch (e) {}
+      st.textContent = 'Probando…';
+      try { await workerGet('/probar'); st.textContent = '✅ Conexión correcta con Paggo.'; }
+      catch (e) { st.textContent = '❌ ' + e.message; }
+    }
+    async function verificarPago(key, silencioso) {
+      const o = orders.find(x => x.key === key);
+      if (!o || !o.pago) return;
+      try {
+        const q = o.pago.linkId ? ('?linkId=' + o.pago.linkId) : ('?link=' + encodeURIComponent(o.pago.link));
+        const d = await workerGet('/estado' + q);
+        if (d.estado === 'pagado') {
+          await db.ref('pedidos/' + key + '/pago').update({ estado: 'pagado', montoPaggo: String(d.monto || ''), fechaPago: d.fechaPago || '', linkId: d.linkId || o.pago.linkId || null });
+          if (!silencioso || (o.pago.estado !== 'pagado')) { toast(`💳 Pago recibido de ${(o.cliente || {}).nombre || 'cliente'} · Q ${d.monto}`); }
+        } else if (!silencioso) {
+          toast('Pago aún ' + (d.estado || 'pendiente'));
+        }
+      } catch (e) { if (!silencioso) toast('❌ ' + e.message); }
+    }
+    function verificarPendientes() {
+      if (!pagosCfg.url || !getAdminKey()) return;
+      const limite = Date.now() - 4 * 86400000;
+      orders.filter(o => o.pago && o.pago.estado !== 'pagado' && o.estado !== 'cancelado' && (o.ts || 0) > limite)
+        .slice(0, 10).forEach(o => verificarPago(o.key, true));
+    }
+    function payBadge(o) {
+      if (o.pago) {
+        if (o.pago.estado === 'pagado') {
+          const pg = Number(o.pago.montoPaggo || o.pago.monto) || 0;
+          const alerta = pg + 0.01 < orderTotal(o) ? ` <span class="pay-badge pendiente">⚠️ Pagó menos que el total (Q ${orderTotal(o).toFixed(2)})</span>` : '';
+          return `<span class="pay-badge pagado">✅ PAGADO con tarjeta · Q ${pg.toFixed(2)}</span>${alerta}`;
+        }
+        return `<span class="pay-badge pendiente">⏳ Pago pendiente · <a href="${esc(o.pago.link)}" target="_blank" rel="noopener">link</a> · <a href="#" onclick="verificarPago('${o.key}');return false;">verificar</a></span>`;
+      }
+      if (o.metodo === 'cash') return `<span class="pay-badge efectivo">💵 Efectivo (pedido antiguo o sin link)</span>`;
+      return `<span class="pay-badge efectivo">💳 Tarjeta · link manual</span>`;
+    }
+
+    // ---------- Horario ----------
+    const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const ORDEN = [1, 2, 3, 4, 5, 6, 0];
+    function fmtHora(t) { let [h, m] = String(t || '0:0').split(':').map(Number); const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return `${h}:${String(m || 0).padStart(2, '0')} ${ap}`; }
+    function diasTexto(ds) {
+      const sel = ORDEN.filter(d => ds.includes(d));
+      if (!sel.length) return 'Cerrado';
+      if (sel.length === 7) return 'Todos los días';
+      const idx = sel.map(d => ORDEN.indexOf(d));
+      const seguidos = idx.every((v, i) => i === 0 || v === idx[i - 1] + 1);
+      if (seguidos && sel.length > 2) return `${DIAS[sel[0]]} a ${DIAS[sel[sel.length - 1]]}`;
+      return sel.map(d => DIAS[d]).join(', ').replace(/, ([^,]*)$/, ' y $1');
+    }
+    function leerHorario() {
+      const ds = [...document.querySelectorAll('#h-days input:checked')].map(i => Number(i.value));
+      const abre = document.getElementById('h-abre').value || '14:00';
+      const cierra = document.getElementById('h-cierra').value || '21:00';
+      return { diasSemana: ds, abre, cierra, forzar: document.getElementById('h-forzar').value,
+        mensajeCerrado: document.getElementById('h-msg').value.trim().slice(0, 140),
+        dias: diasTexto(ds), horas: `${fmtHora(abre)} – ${fmtHora(cierra)}` };
+    }
+    function previewHorario() {
+      const h = leerHorario();
+      document.getElementById('h-preview').textContent = `${h.dias} · ${h.horas}` + (h.forzar === 'cerrado' ? ' (CERRADO HOY)' : h.forzar === 'abierto' ? ' (ABIERTO SIEMPRE)' : '');
+    }
+    function cargarHorario(h) {
+      const ds = Array.isArray(h.diasSemana) ? h.diasSemana : [2, 3, 4, 5, 6];
+      document.getElementById('h-days').innerHTML = ORDEN.map(d =>
+        `<label><input type="checkbox" value="${d}" ${ds.includes(d) ? 'checked' : ''}> ${DIAS[d].slice(0, 3)}</label>`).join('');
+      document.getElementById('h-abre').value = h.abre || '14:00';
+      document.getElementById('h-cierra').value = h.cierra || '21:00';
+      document.getElementById('h-forzar').value = h.forzar || 'auto';
+      document.getElementById('h-msg').value = h.mensajeCerrado || '';
+      previewHorario();
+    }
+    document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#panel-ajustes')) previewHorario(); });
+    document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#panel-ajustes')) previewHorario(); });
+    function saveHorario() {
+      const h = leerHorario();
+      if (!h.diasSemana.length) { toast('Elige al menos un día'); return; }
+      if (h.cierra <= h.abre) { toast('La hora de cierre debe ser después de la de apertura'); return; }
+      db.ref('config/horario').set(h).then(() => toast('✅ Horario guardado')).catch(permError);
+    }
+    function saveCancelacion() {
+      const c = Math.max(0, Math.min(50, Number(document.getElementById('cx-cargo').value) || 0));
+      db.ref('config/cancelacion').set({ cargo: c }).then(() => toast('✅ Guardado')).catch(permError);
+    }
+
+    // ---------- Alarma ----------
+    let audioCtx = null, alarmaTimer = null, alarmaSonando = false, alarmaCfg = { tono: 'voz_sirena', vol: 1 };
+    function cargarAlarma() {
+      try { alarmaCfg = Object.assign(alarmaCfg, JSON.parse(localStorage.getItem('torrons_alarma') || '{}')); } catch (e) {}
+      document.getElementById('al-tono').value = alarmaCfg.tono;
+      document.getElementById('al-vol').value = alarmaCfg.vol;
+    }
+    function saveAlarma() {
+      alarmaCfg = { tono: document.getElementById('al-tono').value, vol: Number(document.getElementById('al-vol').value) || 1 };
+      try { localStorage.setItem('torrons_alarma', JSON.stringify(alarmaCfg)); } catch (e) {}
+    }
+    function desbloquearSonido() {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.resume();
+        if (window.speechSynthesis) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
+      } catch (e) {}
+      document.getElementById('sound-unlock').style.display = 'none';
+      revisarAlarma();
+    }
+    function nota(freq, t0, dur, type = 'square', vol = 1, f2 = null) {
+      const ctx = audioCtx; if (!ctx) return;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, ctx.currentTime + t0);
+      if (f2) o.frequency.linearRampToValueAtTime(f2, ctx.currentTime + t0 + dur);
+      const v = 0.35 * vol * alarmaCfg.vol;
+      g.gain.setValueAtTime(v, ctx.currentTime + t0);
+      g.gain.setValueAtTime(v, ctx.currentTime + t0 + dur * 0.85);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t0 + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + t0); o.stop(ctx.currentTime + t0 + dur + 0.02);
+    }
+    const TONOS = {
+      sirena: () => { for (let i = 0; i < 3; i++) { nota(600, i * 0.9, 0.45, 'sawtooth', 1, 1500); nota(1500, i * 0.9 + 0.45, 0.45, 'sawtooth', 1, 600); } },
+      reloj: () => { for (let r = 0; r < 4; r++) for (let i = 0; i < 4; i++) nota(2100, r * 0.6 + i * 0.09, 0.06, 'square'); },
+      campana: () => { [0, 0.5, 1.0, 1.5].forEach((t, i) => { nota(i % 2 ? 784 : 1047, t, 0.45, 'triangle', 1.3); nota(i % 2 ? 1568 : 2093, t, 0.3, 'sine', 0.5); }); },
+      claxon: () => { [0, 0.45, 1.2, 1.65].forEach(t => { nota(415, t, 0.35, 'sawtooth', 1); nota(523, t, 0.35, 'sawtooth', 0.8); }); },
+      arcade: () => { [0, 0.9].forEach(b => [523, 659, 784, 1047, 1319].forEach((f, i) => nota(f, b + i * 0.11, 0.1, 'square'))); }
+    };
+    function vozFemenina() {
+      const vs = (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(v => /^es/i.test(v.lang));
+      const fem = /(female|mujer|helena|laura|sabina|paulina|monica|mónica|elvira|dalia|lucia|lucía|paloma|camila|valentina|google español)/i;
+      return vs.find(v => fem.test(v.name) && /MX|US|419|GT/i.test(v.lang)) || vs.find(v => fem.test(v.name)) || vs[0] || null;
+    }
+    function hablar(texto) {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(texto);
+      const v = vozFemenina(); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'es-MX';
+      u.rate = 1.0; u.pitch = 1.15; u.volume = alarmaCfg.vol;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    }
+    const EN_APP = !!window.TorronsApp;
+    function sonarUnaVez(texto) {
+      try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+      const t = alarmaCfg.tono;
+      if (t === 'voz') hablar(texto);
+      else if (t === 'voz_sirena') { TONOS.sirena(); setTimeout(() => hablar(texto), 2800); }
+      else (TONOS[t] || TONOS.sirena)();
+    }
+    function probarAlarma() { saveAlarma(); sonarUnaVez('¡Llegó un pedido nuevo! Por favor prepáralo e imprime la comanda.'); }
+    function detenerAlarma(manual) {
+      if (EN_APP && manual) { try { TorronsApp.stopAlarm(); } catch (e) {} }
+      clearInterval(alarmaTimer); alarmaTimer = null; alarmaSonando = false;
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      document.getElementById('alarm-bar').style.display = 'none';
+      if (manual) silenciadoHasta = Date.now() + 60000;
+    }
+    let silenciadoHasta = 0;
+    function irAComandas() { showTab('pedidos'); document.querySelector('input[name=ofilter][value=activos]').checked = true; renderOrders(); }
+
+    function etapaDe(o) { return (seguimiento[o.key] || {}).etapa || (o.impreso ? 'preparando' : 'recibido'); }
+    function listoParaCocina(o) {
+      if (o.estado === 'cancelado' || o.impreso || etapaDe(o) !== 'recibido') return false;
+      if ((o.ts || 0) < Date.now() - 6 * 3600000) return false;
+      if (o.pago) return o.pago.estado === 'pagado';
+      return true;
+    }
+    const MIN_PAGO = 5;
+    const cxAnunciadas = new Set();
+    const esPagado = o => !!(o.pago && o.pago.estado === 'pagado');
+    function cxPagadaPend(o) { return ((seguimiento[o.key] || {}).cancelacion || {}).estado === 'solicitada' && o.estado !== 'cancelado' && esPagado(o); }
+    function cancelarAuto(o, motivo) {
+      db.ref('pedidos/' + o.key + '/estado').set('cancelado').catch(() => {});
+      const d = { etapa: 'cancelado' };
+      if (motivo === 'cliente') d['cancelacion/estado'] = 'aceptada'; else d.motivo = motivo;
+      setSeguimiento(o.key, d);
+      o.estado = 'cancelado';
+    }
+    function procesarAutomaticos() {
+      orders.forEach(o => {
+        if (o.estado === 'cancelado' || o.impreso || etapaDe(o) !== 'recibido') return;
+        const cx = (seguimiento[o.key] || {}).cancelacion || {};
+        const nombre = (o.cliente || {}).nombre || 'un cliente';
+        if (cx.estado === 'solicitada' && !esPagado(o)) {
+          cancelarAuto(o, 'cliente');
+          if (!cxAnunciadas.has(o.key) && Date.now() - (cx.ts || 0) < 10 * 60000) {
+            cxAnunciadas.add(o.key);
+            toast(`↩️ ${nombre} canceló su pedido (no había pagado)`);
+            sonarUnaVez(`Aviso. ${nombre} canceló su pedido. No había pagado.`);
+          }
+        } else if (o.pago && !esPagado(o) && !cx.estado && Date.now() - (o.ts || 0) > MIN_PAGO * 60000 && Date.now() - (o.ts || 0) < 6 * 3600000) {
+          cancelarAuto(o, 'sin_pago');
+        }
+      });
+    }
+    function anunciarCxPagadas() {
+      orders.filter(cxPagadaPend).forEach(o => {
+        if (cxAnunciadas.has(o.key)) return;
+        cxAnunciadas.add(o.key);
+        const nombre = (o.cliente || {}).nombre || 'un cliente';
+        const t = `Atención. ${nombre} canceló su pedido ya pagado. Hay que hacer el reembolso.`;
+        sonarUnaVez(t); setTimeout(() => sonarUnaVez(t), 9000); setTimeout(() => sonarUnaVez(t), 18000);
+      });
+    }
+    function revisarAlarma() {
+      procesarAutomaticos();
+      anunciarCxPagadas();
+      const pend = orders.filter(listoParaCocina);
+      const cx = orders.filter(cxPagadaPend);
+      const bar = document.getElementById('alarm-bar');
+      if (!pend.length && !cx.length) { if (alarmaSonando) detenerAlarma(); return; }
+      const nombre = pend.length ? ((pend[0].cliente || {}).nombre || 'un cliente') : ((cx[0].cliente || {}).nombre || 'un cliente');
+      document.getElementById('alarm-text').textContent = pend.length
+        ? `🔔 ${pend.length === 1 ? 'Nuevo pedido de ' + nombre : pend.length + ' pedidos nuevos'} · imprime la comanda`
+        : `⚠️ ${nombre} canceló su pedido PAGADO · acepta y haz el reembolso en Paggo`;
+      bar.style.display = 'flex';
+      if (document.getElementById('auto-print').checked && pend.length) {
+        const o = pend.find(x => !autoImpresos.has(x.key));
+        if (o) { autoImpresos.add(o.key); printComanda(o.key); }
+      }
+      if (!pend.length) return; // las cancelaciones pagadas se anuncian 3 veces aparte
+      if (alarmaSonando || Date.now() < silenciadoHasta) return;
+      alarmaSonando = true;
+      const texto = '¡Llegó un pedido nuevo de ' + nombre + '! Por favor prepáralo e imprime la comanda.';
+      sonarUnaVez(texto);
+      alarmaTimer = setInterval(() => {
+        const sigue = orders.some(listoParaCocina);
+        if (!sigue) { detenerAlarma(); return; }
+        sonarUnaVez(texto);
+      }, alarmaCfg.tono.startsWith('voz') ? 9000 : 6000);
+    }
+    const autoImpresos = new Set();
+
+    function renderProducts() {
+      const el = document.getElementById('product-list');
+      const groups = {};
+      CATALOG.forEach(c => { (groups[c.group] = groups[c.group] || []).push(c); });
+      el.innerHTML = Object.keys(groups).map(g => `
+        <div class="cat-title">${esc(g)}</div>
+        ${groups[g].map(c => {
+          const val = edits.hasOwnProperty(c.key) ? edits[c.key] : currentPrice(c.key);
+          const on = inStock(c.key);
+          const base = currentPrice(c.key) !== BASE_PRICES[c.key] ? `Precio original: ${q(BASE_PRICES[c.key])}` : '';
+          return `
+          <div class="prod-row">
+            <div><div class="prod-name">${c.emoji} ${esc(c.name)}</div><div class="prod-base">${base}</div></div>
+            <div class="price-wrap"><span>Q</span>
+              <input type="number" min="1" step="0.5" inputmode="decimal" value="${val}"
+                class="${edits.hasOwnProperty(c.key) ? 'changed' : ''}" oninput="editPrice('${c.key}', this)">
+            </div>
+            <div class="stock-cell">
+              <button class="stock-btn ${on ? 'on' : 'off'}" onclick="toggleStock('${c.key}', ${!on})">${on ? '✅ Disponible' : '❌ Agotado'}</button>
+            </div>
+          </div>`;
+        }).join('')}
+      `).join('');
+      updateSaveBar();
+    }
+
+    function editPrice(id, input) {
+      const v = parseFloat(input.value);
+      if (!(v > 0) || v === currentPrice(id)) { delete edits[id]; input.classList.remove('changed'); }
+      else { edits[id] = v; input.classList.add('changed'); }
+      updateSaveBar();
+    }
+    function updateSaveBar() {
+      const n = Object.keys(edits).length;
+      document.getElementById('save-bar').classList.toggle('show', n > 0);
+      document.getElementById('save-count').textContent = n === 1 ? '1 precio sin guardar' : n + ' precios sin guardar';
+    }
+    function discardPrices() { edits = {}; renderProducts(); }
+    function savePrices() {
+      const updates = {};
+      Object.keys(edits).forEach(id => {
+        const v = Math.round(edits[id] * 100) / 100;
+        updates[id] = (v === BASE_PRICES[id]) ? null : v; // si vuelve al original, se borra el cambio
+      });
+      db.ref('precios').update(updates)
+        .then(() => { edits = {}; toast('✅ Precios guardados'); renderProducts(); })
+        .catch(permError);
+    }
+    function toggleStock(id, available) {
+      db.ref('stock/' + id).set(available)
+        .then(() => toast(available ? '✅ Marcado como disponible' : '❌ Marcado como agotado'))
+        .catch(permError);
+    }
+
+    // ---------- Ventas ----------
+    const DAY = 86400000;
+    function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }
+
+    function itemKey(it) {
+      const id = String(it.id);
+      if (/^\d+$/.test(id)) return id;
+      if (id === 'crea_torrons') return 'crea_torrons';
+      return id; // extras de combo: combo_papas, combo_coca...
+    }
+    function itemLabel(key, it) {
+      const p = products.find(x => String(x.id) === key);
+      if (p) return (p.emoji || '') + ' ' + p.name;
+      if (key === 'crea_torrons') return '🛠️ Crea tu Torrons';
+      return 'Combo: ' + String(it.nombre || key).replace(/^↳\s*/, '');
+    }
+
+    function renderSales() {
+      const onlyConfirmed = document.getElementById('only-confirmed').checked;
+      const valid = orders.filter(o => o.ts && o.estado !== 'cancelado' && (!onlyConfirmed || o.estado === 'confirmado'));
+
+      const now = Date.now();
+      const today0 = startOfDay(now);
+      const year0 = new Date(new Date().getFullYear(), 0, 1).getTime();
+      const d30 = today0 - 29 * DAY;      // últimos 30 días (incluye hoy)
+      const d84 = today0 - 83 * DAY;      // últimas 12 semanas
+      const week0 = today0 - ((new Date().getDay() + 6) % 7) * DAY; // lunes de esta semana
+
+      const first = valid.length ? Math.min(...valid.map(o => o.ts)) : now;
+      const daysWithData = Math.max(1, Math.floor((today0 - startOfDay(first)) / DAY) + 1);
+      const days30 = Math.min(30, daysWithData);
+      const days84 = Math.min(84, daysWithData);
+      const monthsYear = Math.max(1, (now - Math.max(year0, startOfDay(first))) / (DAY * 30.44));
+
+      const stats = {};
+      const totals = { today: [0, 0], week: [0, 0], month: [0, 0], year: [0, 0] };
+      const month0 = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+
+      valid.forEach(o => {
+        const items = o.items ? Object.values(o.items) : [];
+        const amount = Number(o.subtotal) || items.reduce((s, it) => s + (Number(it.precio) || 0) * (Number(it.cant) || 0), 0);
+        if (o.ts >= today0) { totals.today[0]++; totals.today[1] += amount; }
+        if (o.ts >= week0)  { totals.week[0]++;  totals.week[1]  += amount; }
+        if (o.ts >= month0) { totals.month[0]++; totals.month[1] += amount; }
+        if (o.ts >= year0)  { totals.year[0]++;  totals.year[1]  += amount; }
+        items.forEach(it => {
+          const key = itemKey(it);
+          const qty = Number(it.cant) || 0;
+          const money = qty * (Number(it.precio) || 0);
+          const s = stats[key] || (stats[key] = { label: itemLabel(key, it), today: 0, d30: 0, d84: 0, year: 0, yearQ: 0 });
+          if (o.ts >= today0) s.today += qty;
+          if (o.ts >= d30) s.d30 += qty;
+          if (o.ts >= d84) s.d84 += qty;
+          if (o.ts >= year0) { s.year += qty; s.yearQ += money; }
+        });
+      });
+
+      document.getElementById('kpis').innerHTML = [
+        ['Hoy', totals.today], ['Esta semana', totals.week], ['Este mes', totals.month], ['Este año', totals.year]
+      ].map(([l, t]) => `<div class="kpi"><div class="k-label">${l}</div><div class="k-value">${q(t[1])}</div><div class="k-sub">${t[0]} pedido${t[0] === 1 ? '' : 's'}</div></div>`).join('');
+
+      // incluir todos los productos del catálogo aunque no tengan ventas
+      products.forEach(p => {
+        const k = String(p.id);
+        if (!stats[k]) stats[k] = { label: (p.emoji || '') + ' ' + p.name, today: 0, d30: 0, d84: 0, year: 0, yearQ: 0 };
+      });
+
+      const rows = Object.values(stats).sort((a, b) => b.year - a.year || b.d30 - a.d30 || a.label.localeCompare(b.label));
+      const fmt = (v, dec = 1) => v === 0 ? `<td class="zero">0</td>` : `<td>${Number(v).toFixed(dec).replace(/\.0+$/, '')}</td>`;
+      document.getElementById('sales-table').innerHTML = `
+        <thead><tr><th>Producto</th><th>Hoy</th><th>Prom./día</th><th>Prom./semana</th><th>Prom./mes</th><th>Total año</th><th>Ventas año</th></tr></thead>
+        <tbody>${rows.map(s => `<tr>
+          <td>${esc(s.label)}</td>
+          ${fmt(s.today, 0)}
+          ${fmt(s.d30 / days30)}
+          ${fmt(s.d84 / (days84 / 7))}
+          ${fmt(s.year / monthsYear)}
+          ${fmt(s.year, 0)}
+          <td${s.yearQ ? '' : ' class="zero"'}>${q(s.yearQ)}</td>
+        </tr>`).join('')}</tbody>`;
+    }
+
+    // ---------- Pedidos ----------
+    const METODOS = { delivery: '🚚 Delivery', pickup: '🏪 Retiro en local', cash: '🛵 Envío contra entrega' };
+    const METODOS_TXT = { delivery: 'DELIVERY', pickup: 'RETIRO EN LOCAL', cash: 'ENVIO CONTRA ENTREGA' };
+
+    function orderItems(o) {
+      return o.items ? Object.keys(o.items).sort().map(k => o.items[k]) : [];
+    }
+    function waCliente(o) {
+      const c = o.cliente || {};
+      let n = String(c.tel || '').replace(/\D/g, '');
+      if (n.length === 8) n = '502' + n;
+      const nombre = String(c.nombre || '').split(' ')[0];
+      const txt = `Hola ${nombre}, te escribimos de Café Torrons sobre tu pedido #${o.key.slice(-5).toUpperCase()}. `;
+      return `https://wa.me/${n}?text=${encodeURIComponent(txt)}`;
+    }
+    function orderTotal(o) {
+      const sub = Number(o.subtotal) || 0;
+      return o.metodo === 'delivery' ? sub + 30 : sub;
+    }
+    function fmtFecha(ts) {
+      return ts ? new Date(ts).toLocaleString('es-GT', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    }
+
+    function renderOrders() {
+      const el = document.getElementById('orders-list');
+      const f = (document.querySelector('input[name=ofilter]:checked') || {}).value || 'activos';
+      const today0 = startOfDay(Date.now());
+      let list = orders;
+      if (f === 'activos') list = orders.filter(o => (o.estado || 'pendiente') === 'pendiente' || ((seguimiento[o.key] || {}).cancelacion || {}).estado === 'solicitada');
+      if (f === 'hoy') list = orders.filter(o => (o.ts || 0) >= today0);
+      list = list.slice(0, 100);
+      const pend = orders.filter(o => (o.estado || 'pendiente') === 'pendiente').length;
+      const badge = document.getElementById('new-badge');
+      badge.textContent = pend; badge.style.display = pend ? 'inline-block' : 'none';
+      if (!list.length) { el.innerHTML = '<p class="hint">No hay comandas en esta vista.</p>'; return; }
+      el.innerHTML = list.map(o => {
+        const c = o.cliente || {};
+        const estado = o.estado || 'pendiente';
+        const items = orderItems(o);
+        const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
+        const et = o.estado === 'cancelado' ? 'cancelado' : etapaDe(o);
+        const cx = (seguimiento[o.key] || {}).cancelacion || null;
+        const ET_TXT = { recibido: '🆕 Recibido', preparando: '👩‍🍳 Preparando', listo: '✅ Listo', en_camino: '🛵 En camino', cancelado: '❌ Cancelado' };
+        return `<div class="comanda ${estado} ${freshKeys.has(o.key) || listoParaCocina(o) ? 'nuevo' : ''}">
+          <div class="c-head">
+            <div>
+              <div class="c-name">👤 ${esc(c.nombre || 'Cliente sin nombre')}</div>
+              <div class="c-meta">${esc(fmtFecha(o.ts))} · ${esc(METODOS[o.metodo] || o.metodo || '')}${c.tel ? ` · <a href="${waCliente(o)}" target="_blank" rel="noopener" class="wa-link" title="Escribir por WhatsApp">💬 ${esc(c.tel)}</a>` : ''}</div>
+              ${dir ? `<div class="c-addr">📍 ${esc(dir)}${c.maps ? ` · <a href="${esc(c.maps)}" target="_blank" rel="noopener">Mapa</a>` : ''}</div>` : ''}
+              ${payBadge(o)} <span class="etapa ${et}">${ET_TXT[et] || et}</span>
+            </div>
+            <div class="c-meta">#${esc(o.key.slice(-5).toUpperCase())}</div>
+          </div>
+          <div class="c-items">
+            ${items.map(it => it.extra
+              ? `<div class="c-sub"><span>↳ ${esc(it.nombre)}</span><span>${q((Number(it.precio) || 0) * (Number(it.cant) || 1))}</span></div>`
+              : `<div class="c-item"><span><b>${Number(it.cant) || 1}×</b> ${esc(it.nombre)}</span><span>${q((Number(it.precio) || 0) * (Number(it.cant) || 1))}</span></div>
+                 ${it.nota ? `<div class="c-sub"><span>↳ ${esc(it.nota)}</span></div>` : ''}
+                 ${(it.detalle || []).map(d => `<div class="c-sub"><span>• ${esc(d)}</span></div>`).join('')}`
+            ).join('')}
+          </div>
+          ${cx && cx.estado === 'solicitada' && o.estado !== 'cancelado' ? `<div class="cx-box">⚠️ <strong>El cliente pidió cancelar.</strong>
+              <button class="btn small" onclick="aceptarCancelacion('${o.key}')">Aceptar cancelación</button>
+              <button class="btn small ghost" onclick="rechazarCancelacion('${o.key}')">Rechazar</button></div>` : ''}
+          <div class="c-foot">
+            <div class="c-total">Total: ${q(orderTotal(o))}${o.metodo === 'cash' ? ' + envío' : ''}</div>
+            <div class="c-actions">
+              <button class="btn small" onclick="printComanda('${o.key}')">🖨️ ${o.impreso ? 'Reimprimir' : 'Imprimir'}</button>
+              ${et === 'preparando' || (et === 'recibido' && o.impreso) ? `<button class="btn small ok" onclick="marcarListo('${o.key}')">✅ Listo</button>` : ''}
+              ${et === 'listo' && o.metodo !== 'pickup' ? `<button class="btn small" style="background:#1565c0" onclick="marcarEnCamino('${o.key}')">🛵 En camino</button>` : ''}
+              <select class="${estado}" onchange="setOrderState('${o.key}', this.value)">
+                <option value="pendiente" ${estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                <option value="confirmado" ${estado === 'confirmado' ? 'selected' : ''}>Confirmado</option>
+                <option value="cancelado" ${estado === 'cancelado' ? 'selected' : ''}>Cancelado</option>
+              </select>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ---------- Pedidos nuevos: aviso con sonido ----------
+    function beep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.25, 0.5].forEach(t => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+          g.gain.setValueAtTime(0.25, ctx.currentTime + t);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.2);
+          o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.22);
+        });
+      } catch (e) {}
+    }
+    function onNewOrders(nuevos) {
+      nuevos.forEach(o => freshKeys.add(o.key));
+      const n = (nuevos[0].cliente || {}).nombre || 'un cliente';
+      toast(nuevos.length === 1 ? `🧾 Nueva comanda de ${n}` : `🧾 ${nuevos.length} comandas nuevas`);
+    }
+
+    // ---------- Impresión 58 mm ----------
+    function printComanda(key) {
+      const o = orders.find(x => x.key === key);
+      if (!o) return;
+      const c = o.cliente || {};
+      const items = orderItems(o);
+      const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
+      // las impresoras térmicas no imprimen emojis: se quitan del ticket
+      const ne = t => String(t ?? '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, '').replace(/\s+/g, ' ').trim();
+      const row = (l, r, cls = '') => `<div class="r ${cls}"><span>${esc(ne(l))}</span><span>${esc(r)}</span></div>`;
+      const pagado = o.pago && o.pago.estado === 'pagado';
+      const fecha = new Date(o.ts || Date.now());
+      const hora = fecha.toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit' });
+      const body = `
+        <div class="c">*** COCINA ***</div>
+        <div class="c xl b">#${esc(o.key.slice(-5).toUpperCase())}</div>
+        <div class="c l b">${esc(ne(c.nombre || 'Cliente'))}</div>
+        <div class="c l">${esc(hora)}</div>
+        <div class="sm">${esc(fecha.toLocaleString('es-GT', { dateStyle: 'short', timeStyle: 'short' }))}${c.tel ? ' · Tel ' + esc(c.tel) : ''}</div>
+        <div class="hr"></div>
+        <div class="c l b">${esc(METODOS_TXT[o.metodo] || '')}</div>
+        ${dir ? `<div class="c sm">${esc(ne(dir))}</div>` : ''}
+        ${pagado ? '<div class="c pagado">PAGADO</div>' : (o.pago ? '<div class="c b">PAGO PENDIENTE</div>' : '<div class="c b">COBRAR EN EFECTIVO</div>')}
+        ${o.metodo === 'cash' ? '<div class="c b">COBRAR ENVIO EN EFECTIVO</div>' : ''}
+        <div class="hr"></div>
+        ${items.map(it => it.extra
+          ? `<div class="it sub">${Number(it.cant) || 1} x ${esc(ne(it.nombre).replace(/ \(combo\)/, ''))}</div>`
+          : `<div class="it b">${Number(it.cant) || 1} x ${esc(ne(it.nombre))}</div>`
+            + (it.nota ? `<div class="it sub">* ${esc(ne(it.nota))}</div>` : '')
+            + (it.detalle || []).map(d => { const t = ne(d).replace(/^Base: /, ''); return `<div class="it sub">${/^\d/.test(t) ? '' : '1 x '}${esc(t)}</div>`; }).join('')
+        ).join('')}
+        <div class="hr"></div>
+        ${row('TOTAL', q(orderTotal(o)) + (o.metodo === 'cash' ? ' + envío' : ''), 'b')}
+        <div style="height:14mm"></div>`;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comanda</title><style>
+        @page { size: 58mm auto; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { width: 58mm; padding: 2mm 3mm; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.3; color: #000; }
+        .c { text-align: center; } .b { font-weight: bold; } .big { font-size: 13px; }
+        .xl { font-size: 26px; line-height: 1.1; margin: 2px 0; } .l { font-size: 17px; } .sm { font-size: 10px; }
+        .pagado { font-size: 20px; font-weight: bold; border: 2px solid #000; padding: 2px 0; margin: 4px 0; letter-spacing: 2px; }
+        .it { font-size: 14px; margin: 3px 0; } .it.sub { font-size: 13px; padding-left: 5mm; font-weight: normal; }
+        .hr { border-top: 1px dashed #000; margin: 4px 0; }
+        .r { display: flex; justify-content: space-between; gap: 6px; }
+        .r span:last-child { white-space: nowrap; }
+        .sub { font-size: 10.5px; padding-left: 2mm; }
+      </style></head><body>${body}</body></html>`;
+      if (EN_APP) { try { TorronsApp.print(html); TorronsApp.stopAlarm(); } catch (e) {} marcarImpreso(key); return; }
+      let fr = document.getElementById('print-frame');
+      if (fr) fr.remove();
+      fr = document.createElement('iframe');
+      fr.id = 'print-frame';
+      fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+      document.body.appendChild(fr);
+      fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
+      setTimeout(() => { fr.contentWindow.focus(); fr.contentWindow.print(); }, 300);
+      marcarImpreso(key);
+    }
+
+    function setSeguimiento(key, datos) {
+      const o = orders.find(x => x.key === key) || {};
+      const base = seguimiento[key] ? {} : { metodo: o.metodo || '', tarjeta: !!o.pago, ts: o.ts || Date.now() };
+      return db.ref('seguimiento/' + key).update(Object.assign(base, datos)).catch(permError);
+    }
+    function marcarImpreso(key) {
+      const o = orders.find(x => x.key === key);
+      if (!o || o.estado === 'cancelado') return;
+      const upd = {};
+      if (!o.impreso) upd.impreso = firebase.database.ServerValue.TIMESTAMP;
+      if (Object.keys(upd).length) db.ref('pedidos/' + key).update(upd).catch(permError);
+      if (etapaDe(o) === 'recibido') setSeguimiento(key, { etapa: 'preparando' });
+      o.impreso = o.impreso || Date.now();
+      detenerAlarma();
+      setTimeout(revisarAlarma, 500);
+    }
+    function marcarListo(key) {
+      setSeguimiento(key, { etapa: 'listo' });
+      db.ref('pedidos/' + key + '/estado').set('confirmado').catch(permError);
+      toast('✅ Pedido marcado como listo · el cliente ya lo ve');
+    }
+    function marcarEnCamino(key) {
+      setSeguimiento(key, { etapa: 'en_camino' });
+      toast('🛵 Pedido en camino · el cliente ya lo ve');
+    }
+    function descargarHistorial() {
+      const filas = [['Fecha', 'Hora', 'Pedido', 'Cliente', 'Teléfono', 'Entrega', 'Producto', 'Cantidad', 'Precio unitario', 'Importe', 'Total pedido', 'Pago', 'Estado']];
+      const PAGO = o => o.pago ? (o.pago.estado === 'pagado' ? 'Tarjeta - pagado' : 'Tarjeta - pendiente') : 'Efectivo/manual';
+      orders.slice().reverse().forEach(o => {
+        const d = new Date(o.ts || 0), c = o.cliente || {};
+        orderItems(o).forEach(it => {
+          const nombre = (it.extra ? '+ ' : '') + it.nombre + (it.nota ? ' (' + it.nota + ')' : '') + ((it.detalle || []).length ? ': ' + it.detalle.join(', ') : '');
+          const cant = Number(it.cant) || 1, pu = Number(it.precio) || 0;
+          filas.push([d.toLocaleDateString('es-GT'), d.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' }), o.key.slice(-5).toUpperCase(),
+            c.nombre || '', c.tel || '', METODOS_TXT[o.metodo] || o.metodo || '', nombre, cant, pu.toFixed(2), (cant * pu).toFixed(2), orderTotal(o).toFixed(2), PAGO(o), o.estado || 'pendiente']);
+        });
+      });
+      const csv = '\ufeff' + filas.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = 'historial-pedidos-torrons-' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function aceptarCancelacion(key) {
+      const o = orders.find(x => x.key === key) || {};
+      const pagado = o.pago && o.pago.estado === 'pagado';
+      const msg = pagado
+        ? `Este pedido ya está PAGADO (Q ${Number(o.pago.montoPaggo || o.pago.monto).toFixed(2)}).\n\nDespués de aceptar, haz el reembolso en la app de Paggo` + ' por el total.' + '\n\n¿Aceptar la cancelación?'
+        : '¿Aceptar la cancelación de este pedido?';
+      if (!confirm(msg)) return;
+      db.ref('pedidos/' + key + '/estado').set('cancelado').catch(permError);
+      setSeguimiento(key, { etapa: 'cancelado', 'cancelacion/estado': 'aceptada' });
+      toast('Pedido cancelado');
+    }
+    function rechazarCancelacion(key) {
+      setSeguimiento(key, { 'cancelacion/estado': 'rechazada' });
+      toast('Cancelación rechazada');
+    }
+
+    function setOrderState(key, estado) {
+      freshKeys.delete(key);
+      if (estado === 'cancelado') setSeguimiento(key, { etapa: 'cancelado' });
+      db.ref('pedidos/' + key + '/estado').set(estado)
+        .then(() => toast('Pedido marcado como ' + estado))
+        .catch(permError);
+    }
+  </script>
+</body>
+</html>
