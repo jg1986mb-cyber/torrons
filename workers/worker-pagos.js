@@ -64,7 +64,7 @@ export default {
       if (!(lat > 13.5 && lat < 15.5 && lng > -91.5 && lng < -89.5)) return json({ error: 'Ubicación fuera de Guatemala' }, 400);
       const recta = distanciaRecta(TORRONS.lat, TORRONS.lng, lat, lng);
       try {
-        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${TORRONS.lng},${TORRONS.lat};${lng},${lat}?overview=false`, { cf: { cacheTtl: 86400 } });
+        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${TORRONS.lng},${TORRONS.lat};${lng},${lat}?overview=false`, { headers: { 'User-Agent': 'CafeTorrons/1.0 (torronsguatemala.com)' } });
         const d = await r.json();
         const ruta = d && d.routes && d.routes[0];
         if (ruta && ruta.distance > 0) return json({ km: Math.round(ruta.distance / 100) / 10, min: Math.round(ruta.duration / 60), fuente: 'ruta' });
