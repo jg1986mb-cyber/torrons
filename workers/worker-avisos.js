@@ -235,6 +235,15 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (!env.FIREBASE_SA) return txt('Falta el secreto FIREBASE_SA', 500);
+    if (url.pathname === '/probar' && url.searchParams.get('app') === 'motoristas') {
+      const ok = await enviarPush(env, {
+        tipo: 'viaje', key: 'prueba-' + Date.now(),
+        titulo: '🧪 Viaje de prueba · Zona 10',
+        cuerpo: 'Zona 10 · 5 km · Ganas Q35. Esto es solo una prueba.',
+        voz: 'Prueba de Torrons. Nuevo viaje disponible en zona diez. Ganas treinta y cinco quetzales.'
+      }, 'motoristas');
+      return txt(ok ? '✅ Aviso de prueba enviado a la app de motoristas' : '❌ No se pudo enviar', ok ? 200 : 500);
+    }
     if (url.pathname === '/probar') {
       const ok = await enviarPush(env, {
         tipo: 'pedido', key: 'prueba-' + Date.now(),
