@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trabaja con nosotros · Motoristas Café Torrons</title>
+  <meta name="description" content="Únete como motorista de Café Torrons Guatemala. Gana el 100% del envío de cada viaje.">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <style>
+    :root { --primary: #c41e3a; --naranja: #e86a17; --dark: #1a1a1a; --muted: #666; --border: #e5e5e5; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', sans-serif; background: #f7f3ef; color: var(--dark); }
+    header { background: var(--dark); color: #fff; padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
+    header img { width: 56px; height: 56px; border-radius: 50%; background: #fff; }
+    header a { color: #fff; text-decoration: none; }
+    .hero { background: linear-gradient(135deg, var(--naranja), #c4541a); color: #fff; padding: 34px 20px; text-align: center; }
+    .hero h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    .hero p { max-width: 560px; margin: 0 auto; opacity: .95; }
+    main { max-width: 620px; margin: -20px auto 40px; padding: 0 14px; }
+    .card { background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 6px 20px rgba(0,0,0,.06); margin-bottom: 16px; }
+    h2 { font-size: 1.15rem; margin-bottom: 10px; color: var(--primary); }
+    ul { padding-left: 20px; } li { margin-bottom: 6px; font-size: .95rem; }
+    label { display: block; font-weight: 600; font-size: .88rem; margin: 14px 0 6px; }
+    input, select, textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: .95rem; font-family: inherit; }
+    textarea { min-height: 80px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: .9rem; }
+    .check input { width: auto; margin-top: 4px; }
+    button { width: 100%; margin-top: 18px; padding: 15px; border: none; border-radius: 12px; background: var(--primary); color: #fff; font-weight: 700; font-size: 1.05rem; font-family: inherit; cursor: pointer; }
+    button:disabled { opacity: .6; }
+    .ok { display: none; text-align: center; padding: 30px 10px; }
+    .ok .big { font-size: 3rem; }
+    .terminos { font-size: .88rem; color: #333; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fafafa; }
+    .terminos li { font-size: .88rem; }
+    .err { color: #a12020; font-size: .88rem; margin-top: 10px; }
+    @media (max-width: 480px) { .row { grid-template-columns: 1fr; } .hero h1 { font-size: 1.5rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/"><img src="imagenes/logo-torrons.png" alt="Café Torrons"></a>
+    <div><a href="/"><strong>Café Torrons</strong></a><br><small>Lo mejor de dos mundos</small></div>
+  </header>
+  <section class="hero">
+    <h1>🛵 Trabaja con nosotros</h1>
+    <p>Buscamos motoristas responsables en la Ciudad de Guatemala. Tú eliges cuándo conectarte y <strong>ganas el 100% del envío</strong> de cada viaje.</p>
+  </section>
+
+  <main>
+    <div class="card">
+      <h2>¿Cómo funciona?</h2>
+      <ul>
+        <li>Instalas la app <strong>Torrons Motoristas</strong> y te conectas cuando puedas.</li>
+        <li>Cuando un pedido está listo, te llega un aviso con la zona y cuánto ganas. El primero que acepta se lo lleva.</li>
+        <li>Recoges en 1a avenida A 1-00, zona 2 (El Sauce) y entregas con el mapa de la app.</li>
+        <li>Ganas el envío completo: los pedidos pagados con tarjeta se te pagan cada semana; los de contra entrega los cobras tú en efectivo.</li>
+      </ul>
+    </div>
+
+    <div class="card" id="form-card">
+      <h2>Déjanos tus datos</h2>
+      <form id="form" onsubmit="enviar(event)">
+        <label for="nombre">Nombre completo *</label>
+        <input id="nombre" required maxlength="70">
+        <div class="row">
+          <div><label for="tel">Teléfono / WhatsApp *</label><input id="tel" type="tel" required maxlength="20" placeholder="Ej: 5555 1234"></div>
+          <div><label for="zona">¿En qué zona o municipio vives? *</label><input id="zona" required maxlength="60" placeholder="Ej: Zona 6"></div>
+        </div>
+        <div class="row">
+          <div><label for="moto">Tu moto (marca y año) *</label><input id="moto" required maxlength="60" placeholder="Ej: Honda 2021"></div>
+          <div><label for="licencia">¿Licencia vigente? *</label>
+            <select id="licencia" required><option value="">Elige…</option><option>Sí, tipo M</option><option>Sí, otro tipo</option><option>No</option></select></div>
+        </div>
+        <label for="disp">¿Qué días y horas puedes trabajar?</label>
+        <input id="disp" maxlength="120" placeholder="Ej: martes a sábado de 2 a 9 pm">
+        <label for="exp">Experiencia en reparto (opcional)</label>
+        <textarea id="exp" maxlength="300" placeholder="Ej: 2 años en otras apps de delivery"></textarea>
+
+        <label>Condiciones para motoristas</label>
+        <div class="terminos" id="terminos"></div>
+        <div class="check"><input type="checkbox" id="acepto" required><label for="acepto" style="margin:0;font-weight:500;">Leí y acepto las condiciones. Sé que también las tendré que aceptar en la app.</label></div>
+        <button type="submit" id="btn">Enviar solicitud</button>
+        <div class="err" id="err"></div>
+      </form>
+    </div>
+
+    <div class="card ok" id="ok">
+      <div class="big">✅</div>
+      <h2>¡Gracias! Recibimos tu solicitud</h2>
+      <p>Te escribiremos por WhatsApp para coordinar una entrevista.</p>
+      <p style="margin-top:14px;"><a href="/" style="color:var(--primary);font-weight:600;">← Volver al menú</a></p>
+    </div>
+  </main>
+
+  <script>
+    const TERMINOS = [
+      'Trato a cada cliente con respeto y amabilidad, y uso un lenguaje adecuado.',
+      'Entrego el pedido completo, cerrado y en buen estado. No abro ni consumo productos.',
+      'Cobro solo el monto indicado en la app. En pedidos contra entrega cobro únicamente el envío.',
+      'Cualquier robo, faltante de dinero o de producto será denunciado ante las autoridades y causará la baja inmediata.',
+      'Respeto las leyes de tránsito y uso casco. Mi moto, licencia y documentos están en regla y son mi responsabilidad.',
+      'Mientras llevo un pedido, la app comparte mi ubicación con Café Torrons y con el cliente. Al terminar el viaje deja de compartirla.',
+      'Trabajo de forma independiente: elijo cuándo conectarme y qué viajes acepto.',
+      'Gano el 100% del envío de cada viaje. Los pagados con tarjeta se liquidan cada semana.',
+      'Café Torrons puede desactivar mi cuenta si no cumplo estas condiciones.'
+    ];
+    document.getElementById('terminos').innerHTML = '<ol>' + TERMINOS.map(t => '<li>' + t + '</li>').join('') + '</ol>';
+
+    firebase.initializeApp({
+      apiKey: "AIzaSyB5NHQqpKBUCiJH3GHfkLEmTd0Q69PPKK8",
+      authDomain: "cafe-torrons.firebaseapp.com",
+      databaseURL: "https://cafe-torrons-default-rtdb.firebaseio.com",
+      projectId: "cafe-torrons",
+      appId: "1:157355471209:web:6f25f061685317b3034df8"
+    });
+    const db = firebase.database();
+    const v = id => document.getElementById(id).value.trim();
+
+    function enviar(e) {
+      e.preventDefault();
+      const err = document.getElementById('err'); err.textContent = '';
+      if (!document.getElementById('acepto').checked) { err.textContent = 'Debes aceptar las condiciones.'; return; }
+      const btn = document.getElementById('btn'); btn.disabled = true; btn.textContent = 'Enviando…';
+      const datos = { nombre: v('nombre'), tel: v('tel'), zona: v('zona'), moto: v('moto'), licencia: v('licencia'), ts: Date.now() };
+      if (v('disp')) datos.disponibilidad = v('disp');
+      if (v('exp')) datos.experiencia = v('exp');
+      db.ref('solicitudes').push(datos).then(() => {
+        document.getElementById('form-card').style.display = 'none';
+        document.getElementById('ok').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }).catch(() => { err.textContent = 'No se pudo enviar. Revisa tu conexión e intenta de nuevo.'; btn.disabled = false; btn.textContent = 'Enviar solicitud'; });
+    }
+  </script>
+</body>
+</html>

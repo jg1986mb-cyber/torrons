@@ -798,6 +798,11 @@
       outline: none;
       border-color: var(--primary);
     }
+    .ubic-btn { width: 100%; margin-top: 6px; padding: 12px; border-radius: 10px; border: 2px solid var(--primary); background: #fff; color: var(--primary); font-weight: 700; font-family: inherit; font-size: 0.95rem; cursor: pointer; }
+    .ubic-mapa { height: 230px; border-radius: 12px; margin-top: 8px; border: 1.5px solid var(--border); z-index: 0; }
+    .ubic-info { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: #f6f6f6; font-size: 0.9rem; }
+    .ubic-info.ok { background: #eefaf0; color: #1d6b31; font-weight: 600; }
+    .ubic-info.mal { background: #fdecec; color: #a12020; font-weight: 600; }
     .maps-help {
       font-size: 0.8rem;
       color: var(--muted);
@@ -1318,7 +1323,7 @@
       </div>
       <div class="info-card">
         <h3>🚚 Envíos</h3>
-        <p><strong>Delivery:</strong> Q 30.00 a la capital, por <strong>InDrive</strong> o <strong>Uber</strong>.<br>
+        <p><strong>Delivery:</strong> según la distancia, desde Q 20.00, con nuestros motoristas. Lo calculamos al compartir tu ubicación.<br>
         <strong>Retiro en local:</strong> sin costo.<br>
         <!-- ZONAS DE COBERTURA: reemplazar la siguiente línea por la lista de zonas -->
         <strong>Cobertura:</strong> escríbenos por WhatsApp para confirmar si llegamos a tu zona.</p>
@@ -1348,6 +1353,7 @@
     <p style="margin-top:6px;opacity:0.8;font-size:0.9rem;">
       Comida chilena en Guatemala · <a href="https://torronsguatemala.com" target="_blank">torronsguatemala.com</a>
     </p>
+    <p style="margin-top:12px;"><a href="trabaja.html" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#e86a17;color:#fff;font-weight:700;text-decoration:none;">🛵 Trabaja con nosotros · Motoristas</a></p>
   </footer>
 
   <!-- Cart Overlay & Sidebar -->
@@ -1366,7 +1372,7 @@
         <label class="delivery-option" data-method="delivery">
           <input type="radio" name="delivery-method" value="delivery" onchange="setDeliveryMethod('delivery')">
           <div class="delivery-option-text"><strong>🚚 Delivery</strong><span>Pago con tarjeta (link de Paggo)</span></div>
-          <div class="delivery-option-price">Q 30.00</div>
+          <div class="delivery-option-price">Según distancia</div>
         </label>
         <label class="delivery-option" data-method="pickup">
           <input type="radio" name="delivery-method" value="pickup" onchange="setDeliveryMethod('pickup')">
@@ -1390,7 +1396,7 @@
         </div>
         <div class="cart-row">
           <span id="cart-delivery-label">Envío (Capital)</span>
-          <span id="cart-delivery">Q 30.00</span>
+          <span id="cart-delivery">—</span>
         </div>
         <div class="cart-total">
           <span>Total</span>
@@ -1452,11 +1458,11 @@
           Puedes elegir <a href="#" onclick="switchToPickup();return false;">Retiro en local (sin costo)</a>.
         </div>
 
-        <label for="customer-maps">Link de Google Maps / ubicación (recomendado)</label>
-        <input type="url" id="customer-maps" placeholder="Pega aquí el link de Google Maps">
-        <p class="maps-help">
-          💡 Abre <a href="https://maps.google.com" target="_blank">Google Maps</a>, busca tu dirección, toca “Compartir” → “Copiar enlace” y pégalo aquí. Así confirmamos la ubicación exacta.
-        </p>
+        <label>📍 Ubicación exacta de entrega *</label>
+        <button type="button" class="ubic-btn" onclick="usarMiUbicacion()">📍 Usar mi ubicación actual</button>
+        <p class="maps-help">O toca el mapa / arrastra el pin hasta tu casa. Con esto calculamos el envío y el motorista llega directo.</p>
+        <div id="ubic-mapa" class="ubic-mapa"></div>
+        <div id="ubic-info" class="ubic-info">Aún no has marcado tu ubicación.</div>
         </div>
 
         <div class="pickup-box" id="checkout-pickup-box" style="display:none;margin-top:14px;">
@@ -1824,9 +1830,80 @@
       if (['delivery', 'pickup', 'cash'].includes(saved)) deliveryMethod = saved;
     } catch (e) {}
 
+    // ========== ENVÍO POR DISTANCIA ==========
+    const TORRONS_POS = [14.6495488, -90.5178091];
+    let ENVIO = { base: 15, porKm: 4, minimo: 20, maxKm: 12 };
+    db.ref('config/envio').on('value', s => { const v = s.val() || {}; ENVIO = { base: Number(v.base) || 15, porKm: Number(v.porKm) || 4, minimo: Number(v.minimo) || 20, maxKm: Number(v.maxKm) || 12 }; if (envioCalc) aplicarTarifa(); });
+    let envioCalc = null; // { lat, lng, km, min, monto, fuera }
+    try { const g = JSON.parse(localStorage.getItem('torrons_ubicacion') || 'null'); if (g && g.lat) envioCalc = g; } catch (e) {}
+    function aplicarTarifa() {
+      if (!envioCalc) return;
+      envioCalc.monto = Math.max(ENVIO.minimo, Math.round(ENVIO.base + ENVIO.porKm * envioCalc.km));
+      envioCalc.fuera = envioCalc.km > ENVIO.maxKm;
+      try { localStorage.setItem('torrons_ubicacion', JSON.stringify(envioCalc)); } catch (e) {}
+      mostrarInfoEnvio(); updateCartUI(); renderResumenCheckout();
+    }
+    function distanciaRecta(a, b, c, d) { const R = 6371, r = x => x * Math.PI / 180; const h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
+    async function calcularEnvio(lat, lng) {
+      const info = document.getElementById('ubic-info');
+      if (info) { info.className = 'ubic-info'; info.textContent = '⏳ Calculando distancia…'; }
+      let km = null, min = null;
+      try {
+        if (PAGOS.url) { const d = await (await fetch(`${PAGOS.url}/distancia?lat=${lat}&lng=${lng}`)).json(); if (d && d.km) { km = d.km; min = d.min; } }
+      } catch (e) {}
+      if (km == null) km = Math.round(distanciaRecta(TORRONS_POS[0], TORRONS_POS[1], lat, lng) * 1.35 * 10) / 10;
+      envioCalc = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, km, min };
+      aplicarTarifa();
+    }
+    function mostrarInfoEnvio() {
+      const info = document.getElementById('ubic-info');
+      if (!info) return;
+      if (!envioCalc) { info.className = 'ubic-info'; info.textContent = 'Aún no has marcado tu ubicación.'; return; }
+      if (envioCalc.fuera) { info.className = 'ubic-info mal'; info.innerHTML = `🚫 Estás a ${envioCalc.km} km: fuera de nuestra cobertura (máx. ${ENVIO.maxKm} km). Puedes elegir <a href="#" onclick="switchToPickup();return false;">Retiro en local</a>.`; return; }
+      info.className = 'ubic-info ok';
+      info.innerHTML = `📏 ${envioCalc.km} km${envioCalc.min ? ' · ~' + envioCalc.min + ' min' : ''} · Envío <strong>Q ${envioCalc.monto.toFixed(2)}</strong>${deliveryMethod === 'cash' ? ' (en efectivo al motorista)' : ''}`;
+    }
+    let mapaUbic = null, pinUbic = null;
+    function cargarLeaflet() {
+      if (window.L) return Promise.resolve();
+      return new Promise((ok, mal) => {
+        const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+        const sc = document.createElement('script'); sc.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; sc.onload = ok; sc.onerror = mal; document.head.appendChild(sc);
+      });
+    }
+    async function prepararMapaUbicacion() {
+      try { await cargarLeaflet(); } catch (e) { return; }
+      const el = document.getElementById('ubic-mapa');
+      if (!el) return;
+      const ini = envioCalc ? [envioCalc.lat, envioCalc.lng] : TORRONS_POS;
+      if (!mapaUbic) {
+        mapaUbic = L.map(el, { scrollWheelZoom: false }).setView(ini, envioCalc ? 16 : 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapaUbic);
+        L.marker(TORRONS_POS, { title: 'Café Torrons' }).addTo(mapaUbic).bindTooltip('☕ Torrons');
+        mapaUbic.on('click', e => ponerPin(e.latlng.lat, e.latlng.lng, true));
+      }
+      setTimeout(() => { mapaUbic.invalidateSize(); if (envioCalc) ponerPin(envioCalc.lat, envioCalc.lng, false); }, 250);
+    }
+    function ponerPin(lat, lng, calcular) {
+      if (!mapaUbic) return;
+      if (!pinUbic) {
+        pinUbic = L.marker([lat, lng], { draggable: true }).addTo(mapaUbic).bindTooltip('🏠 Entregar aquí', { permanent: true, direction: 'top', offset: [-15, -12] });
+        pinUbic.on('dragend', () => { const p = pinUbic.getLatLng(); calcularEnvio(p.lat, p.lng); });
+      } else pinUbic.setLatLng([lat, lng]);
+      mapaUbic.setView([lat, lng], Math.max(mapaUbic.getZoom(), 16));
+      if (calcular) calcularEnvio(lat, lng);
+    }
+    function usarMiUbicacion() {
+      if (!navigator.geolocation) { showToast('Tu teléfono no permite compartir ubicación; marca el punto en el mapa'); return; }
+      const info = document.getElementById('ubic-info'); if (info) { info.className = 'ubic-info'; info.textContent = '⏳ Buscando tu ubicación…'; }
+      navigator.geolocation.getCurrentPosition(p => ponerPin(p.coords.latitude, p.coords.longitude, true),
+        () => { showToast('No pudimos leer tu ubicación; marca el punto en el mapa'); mostrarInfoEnvio(); },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    }
+
     function getDeliveryFee() {
       if (cart.length === 0) return 0;
-      return deliveryMethod === 'delivery' ? DELIVERY_FEE : 0;
+      return deliveryMethod === 'delivery' && envioCalc && !envioCalc.fuera ? envioCalc.monto : 0;
     }
 
     function getDeliveryLabel() {
@@ -1837,8 +1914,8 @@
 
     function getDeliveryText() {
       if (deliveryMethod === 'pickup') return 'Gratis';
-      if (deliveryMethod === 'cash') return 'Por coordinar';
-      return `Q ${DELIVERY_FEE.toFixed(2)}`;
+      if (!envioCalc || envioCalc.fuera) return 'Según distancia';
+      return deliveryMethod === 'cash' ? `Q ${envioCalc.monto.toFixed(2)} (efectivo)` : `Q ${envioCalc.monto.toFixed(2)}`;
     }
 
     function setDeliveryMethod(method) {
@@ -2240,9 +2317,9 @@
         document.getElementById('delivery-options').style.display = 'block';
         document.getElementById('cart-delivery-label').textContent = getDeliveryLabel();
         deliveryEl.textContent = getDeliveryText();
-        totalEl.textContent = deliveryMethod === 'cash'
-          ? `Q ${getCartTotal().toFixed(2)} + envío`
-          : `Q ${getCartTotal().toFixed(2)}`;
+        totalEl.textContent = deliveryMethod === 'pickup' || (deliveryMethod === 'delivery' && envioCalc && !envioCalc.fuera)
+          ? `Q ${getCartTotal().toFixed(2)}`
+          : `Q ${getCartTotal().toFixed(2)} + envío`;
         updateDeliveryOptionsUI();
       }
     }
@@ -2277,8 +2354,14 @@
       if (cart.length === 0) return;
       if (!tiendaAbierta(true)) return;
 
-      // Mostrar resumen del pedido
+      renderResumenCheckout();
+      const isPickup0 = deliveryMethod === 'pickup';
+      if (!isPickup0) setTimeout(() => { prepararMapaUbicacion(); mostrarInfoEnvio(); }, 50);
+      abrirCheckoutResto();
+    }
+    function renderResumenCheckout() {
       const summary = document.getElementById('order-summary-mini');
+      if (!summary || !cart.length) return;
       let html = '<strong>Resumen del pedido:</strong><br>';
       cart.forEach(item => {
         html += `• ${item.qty}x ${item.name} — Q ${(item.price * item.qty).toFixed(2)}<br>`;
@@ -2287,15 +2370,19 @@
       html += `${getDeliveryLabel()}: ${getDeliveryText()}<br>`;
       if (deliveryMethod === 'cash') {
         html += `<strong>Total productos: Q ${getCartTotal().toFixed(2)}</strong><br>`;
-        html += `💳 Pagas los productos con tarjeta (Paggo).<br>🛵 El envío lo pagas en efectivo al motorista; te confirmamos el costo cuando tu pedido esté listo.`;
+        html += `💳 Pagas los productos con tarjeta (Paggo).<br>🛵 El envío${envioCalc && !envioCalc.fuera ? ' (Q ' + envioCalc.monto.toFixed(2) + ')' : ''} lo pagas en efectivo al motorista.`;
       } else if (deliveryMethod === 'pickup') {
         html += `<strong>Total a pagar: Q ${getCartTotal().toFixed(2)}</strong><br>`;
         html += `💳 Al confirmar pagas con tarjeta en Paggo.`;
+      } else if (!envioCalc || envioCalc.fuera) {
+        html += `<strong>Productos: Q ${getCartSubtotal().toFixed(2)}</strong> + envío (marca tu ubicación para calcularlo)`;
       } else {
         html += `<strong>Total a pagar: Q ${getCartTotal().toFixed(2)}</strong><br>`;
         html += `💳 Al confirmar pagas con tarjeta en Paggo.`;
       }
       summary.innerHTML = html;
+    }
+    function abrirCheckoutResto() {
 
       const isPickup = deliveryMethod === 'pickup';
       document.getElementById('address-fields').style.display = isPickup ? 'none' : 'block';
@@ -2314,7 +2401,7 @@
       document.getElementById('checkout-overlay').classList.remove('open');
     }
 
-    const METODO_TXT = { delivery: '🚚 Delivery (Q 30)', pickup: '🏪 Retiro en local', cash: '🛵 Envío contra entrega' };
+    const METODO_TXT = { delivery: '🚚 Delivery', pickup: '🏪 Retiro en local', cash: '🛵 Envío contra entrega' };
 
     // Agrupa el carrito como comanda: producto principal + extras/ingredientes debajo
     function buildComandaLines() {
@@ -2337,8 +2424,8 @@
     function confirmAndSendWhatsApp() {
       const name = document.getElementById('customer-name').value.trim();
       const phone = document.getElementById('customer-phone').value.trim();
-      const maps = document.getElementById('customer-maps').value.trim();
       const a = getAddressParts();
+      const maps = envioCalc ? `https://www.google.com/maps?q=${envioCalc.lat},${envioCalc.lng}` : '';
 
       if (!tiendaAbierta(true)) return;
       const isPickup = deliveryMethod === 'pickup';
@@ -2352,6 +2439,15 @@
       }
       if (!isPickup && checkAddressCoverage()) {
         showToast('Lo sentimos, no realizamos envíos a tu sector');
+        return;
+      }
+      if (!isPickup && !envioCalc) {
+        showToast('📍 Marca tu ubicación en el mapa para calcular el envío');
+        document.getElementById('ubic-mapa').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (!isPickup && envioCalc.fuera) {
+        showToast('Tu ubicación está fuera de nuestra cobertura');
         return;
       }
 
@@ -2375,14 +2471,14 @@
       m += `${SEP}${NL}`;
       m += `Subtotal: Q ${getCartSubtotal().toFixed(2)}${NL}`;
       if (deliveryMethod === 'delivery') {
-        m += `Envío: Q ${DELIVERY_FEE.toFixed(2)}${NL}`;
+        m += `Envío (${envioCalc.km} km): Q ${getDeliveryFee().toFixed(2)}${NL}`;
         m += `*TOTAL: Q ${getCartTotal().toFixed(2)}*${NL}${NL}`;
         m += `💳 Pago con tarjeta (link de Paggo)${NL}`;
       } else if (isPickup) {
         m += `*TOTAL: Q ${getCartTotal().toFixed(2)}*${NL}${NL}`;
         m += `💳 Pago con tarjeta (link de Paggo)${NL}`;
       } else {
-        m += `Envío: por coordinar con el motorista${NL}`;
+        m += `Envío (${envioCalc.km} km): Q ${envioCalc.monto.toFixed(2)} en efectivo al motorista${NL}`;
         m += `*TOTAL PRODUCTOS: Q ${getCartTotal().toFixed(2)}* (+ envío)${NL}${NL}`;
         m += `💳 Pago con tarjeta (link de Paggo)${NL}`;
         m += `🛵 Envío: se paga en efectivo al motorista${NL}`;
@@ -2390,7 +2486,8 @@
       m += `${NL}Por favor confirmen disponibilidad. ¡Gracias!`;
 
       const email = (document.getElementById('customer-email') || {}).value || '';
-      const pedidoKey = registrarPedido({ nombre: name, tel: phone, email: email.trim(), calle: isPickup ? '' : a.calle, colonia: isPickup ? '' : a.colonia, zona: isPickup ? '' : a.zona, maps: isPickup ? '' : maps });
+      const pedidoKey = registrarPedido({ nombre: name, tel: phone, email: email.trim(), calle: isPickup ? '' : a.calle, colonia: isPickup ? '' : a.colonia, zona: isPickup ? '' : a.zona, maps: isPickup ? '' : maps,
+        lat: isPickup ? '' : envioCalc.lat, lng: isPickup ? '' : envioCalc.lng, km: isPickup ? '' : envioCalc.km, envio: isPickup ? '' : envioCalc.monto });
 
       const whatsappNumber = WHATSAPP_NEGOCIO;
       if (!pagoEnLinea() || !pedidoKey) {
@@ -2559,9 +2656,10 @@
       { k: 'recibido', t: 'Recibido', d: 'Tu pedido llegó a la cocina' },
       { k: 'preparando', t: 'Preparando', d: 'Estamos preparando tu pedido' },
       { k: 'listo', t: 'Listo', d: '' },
-      { k: 'en_camino', t: 'En camino', d: '🛵 El motorista va hacia tu dirección' }
+      { k: 'en_camino', t: 'En camino', d: '🛵 El motorista va hacia tu dirección' },
+      { k: 'entregado', t: 'Entregado', d: '¡Buen provecho! 😋' }
     ];
-    function etapasDe(p) { return ETAPAS_ALL.filter(x => x.k !== 'en_camino' || (p && p.metodo !== 'pickup')); }
+    function etapasDe(p) { return ETAPAS_ALL.filter(x => (x.k !== 'en_camino' && x.k !== 'entregado') || (p && p.metodo !== 'pickup')); }
     const ETAPAS = ETAPAS_ALL;
     function renderMiPedidoBtn() {
       const b = document.getElementById('mp-btn');
@@ -2575,7 +2673,7 @@
       b.innerHTML = `📦 Mi pedido · <strong>${txt}</strong>`;
       const h = document.getElementById('hdr-status');
       if (h) {
-        const ICON = { recibido: '🧾', preparando: '👩‍🍳', listo: '✅', en_camino: '🛵', cancelado: '❌' };
+        const ICON = { recibido: '🧾', preparando: '👩‍🍳', listo: '✅', en_camino: '🛵', entregado: '📦', cancelado: '❌' };
         h.style.display = 'inline-block';
         h.className = 'hdr-status ' + (pagoPend ? 'pago' : et);
         h.textContent = (pagoPend ? '💳' : (ICON[et] || '🧾')) + ' ' + txt;
@@ -2705,9 +2803,10 @@
         const idx = LST.findIndex(x => x.k === et);
         LST.forEach((s, i) => {
           const cls = i < idx ? 'done' : (i === idx ? 'now' : '');
-          const icon = i < idx ? '✅' : (i === idx ? ({ listo: '🎉', en_camino: '🛵' }[s.k] || '⏳') : '⚪');
-          html += `<div class="mp-step ${cls}"><span>${icon}</span><div><strong>${s.t}</strong><small>${s.k === 'listo' ? listoTxt : s.d}</small></div></div>`;
+          const icon = i < idx ? '✅' : (i === idx ? ({ listo: '🎉', en_camino: '🛵', entregado: '📦' }[s.k] || '⏳') : '⚪');
+          html += `<div class="mp-step ${cls}"><span>${icon}</span><div><strong>${s.t}</strong><small>${s.k === 'listo' ? listoTxt : (s.k === 'en_camino' && mpSeg.motorista ? '🛵 ' + mpSeg.motorista + ' va hacia tu dirección' : s.d)}</small></div></div>`;
         });
+        if (et === 'en_camino') html += `<div id="mp-mapa" style="height:220px;border-radius:12px;margin:8px 0;border:1px solid #eee;"></div><p class="pay-note" id="mp-mapa-nota">📍 Ubicación del motorista en tiempo real</p>`;
 
         if (canc && canc.estado === 'solicitada') {
           html += `<div class="mp-alert">⏳ Solicitaste cancelar. ${miPedido.pagado ? 'Te confirmamos y gestionamos el reembolso.' : 'Se cancela en un momento.'}</div>`;
@@ -2719,8 +2818,32 @@
                    <p class="pay-note">Puedes cancelar solo antes de que empecemos a prepararlo. ${cargoTxt}${miPedido.pagado ? ' El reembolso se procesa por Paggo y puede tardar unos días en reflejarse en tu tarjeta.' : ''}</p>`;
         }
       }
-      if (et === 'listo' || et === 'en_camino' || et === 'cancelado') html += `<button class="mp-forget" onclick="olvidarMiPedido()">Cerrar seguimiento</button>`;
+      if (et === 'listo' || et === 'en_camino' || et === 'entregado' || et === 'cancelado') html += `<button class="mp-forget" onclick="olvidarMiPedido()">Cerrar seguimiento</button>`;
       el.innerHTML = html + historialHTML(miPedido.key);
+      if (et === 'en_camino') setTimeout(mostrarMotoEnMapa, 50); else apagarMapaMoto();
+    }
+    let mpMapa = null, mpMoto = null, mpUbicRef = null;
+    function apagarMapaMoto() { if (mpUbicRef) { mpUbicRef.off(); mpUbicRef = null; } if (mpMapa) { mpMapa.remove(); mpMapa = null; mpMoto = null; } }
+    async function mostrarMotoEnMapa() {
+      const el = document.getElementById('mp-mapa'); if (!el || !miPedido) return;
+      try { await cargarLeaflet(); } catch (e) { return; }
+      if (mpMapa && mpMapa.getContainer() !== el) { mpMapa.remove(); mpMapa = null; mpMoto = null; }
+      if (!mpMapa) {
+        mpMapa = L.map(el, { scrollWheelZoom: false }).setView(TORRONS_POS, 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mpMapa);
+        const u = JSON.parse(localStorage.getItem('torrons_ubicacion') || 'null');
+        if (u && u.lat) L.marker([u.lat, u.lng]).addTo(mpMapa).bindTooltip('🏠 Tú');
+      }
+      if (!mpUbicRef) {
+        mpUbicRef = db.ref('ubicaciones/' + miPedido.key);
+        mpUbicRef.on('value', s => {
+          const v = s.val(); if (!v || !mpMapa) return;
+          if (!mpMoto) mpMoto = L.marker([v.lat, v.lng]).addTo(mpMapa).bindTooltip('🛵 ' + (mpSeg.motorista || 'Motorista'), { permanent: true });
+          else mpMoto.setLatLng([v.lat, v.lng]);
+          mpMapa.setView([v.lat, v.lng], Math.max(mpMapa.getZoom(), 15));
+          const n = document.getElementById('mp-mapa-nota'); if (n) n.textContent = '📍 Actualizado ' + new Date(v.ts).toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit' });
+        });
+      }
     }
 
     function solicitarCancelacion() {

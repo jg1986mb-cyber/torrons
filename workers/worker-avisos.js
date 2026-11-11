@@ -61,13 +61,13 @@ async function reclamar(env, ruta) {
   return w.ok;
 }
 
-async function enviarPush(env, data) {
+async function enviarPush(env, data, tema = TOPIC) {
   const t = await tokenGoogle(env);
   const proyecto = tokenCache.proyecto || 'cafe-torrons';
   const limpio = {}; Object.keys(data).forEach(k => { if (data[k] != null) limpio[k] = String(data[k]).slice(0, 1500); });
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${proyecto}/messages:send`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-    body: JSON.stringify({ message: { topic: TOPIC, data: limpio, android: { priority: 'HIGH', ttl: '900s' } } })
+    body: JSON.stringify({ message: { topic: tema, data: limpio, android: { priority: 'HIGH', ttl: '900s' } } })
   });
   return r.ok;
 }
@@ -120,9 +120,10 @@ async function revisarPedidos(env) {
   if (!env.FIREBASE_SA) return { error: 'Falta FIREBASE_SA' };
   const desde = prefijoLlave(Date.now() - 6 * 3600000);
   const filtro = `orderBy=%22%24key%22&startAt=%22${desde}%22`;
-  const [rp, rs] = await Promise.all([db(env, 'pedidos.json?' + filtro), db(env, 'seguimiento.json?' + filtro)]);
+  const [rp, rs, re] = await Promise.all([db(env, 'pedidos.json?' + filtro), db(env, 'seguimiento.json?' + filtro), db(env, 'entregas.json?' + filtro)]);
   const pedidos = (await rp.json()) || {};
   const seg = (await rs.json()) || {};
+  const entregas = (await re.json()) || {};
   const res = { revisados: 0, avisos: 0 };
 
   for (const key of Object.keys(pedidos)) {
@@ -191,6 +192,33 @@ async function revisarPedidos(env) {
         voz: `Aviso. ${nombre} canceló su pedido. No había pagado.`
       });
       res.avisos++;
+    }
+  }
+  // 5) motoristas: viaje nuevo → aviso a los que están en línea; aceptado → aviso a cocina
+  for (const key of Object.keys(entregas)) {
+    const e = entregas[key]; if (!e || typeof e !== 'object') continue;
+    const o = pedidos[key] || {};
+    const sg = seg[key] || {};
+    if ((o.estado === 'cancelado' || sg.etapa === 'cancelado') && ['disponible', 'asignado'].includes(e.estado)) {
+      await db(env, `entregas/${key}.json`, { method: 'PATCH', body: JSON.stringify({ estado: 'cancelado' }) });
+      continue;
+    }
+    const lugar = [e.zona, e.colonia].filter(Boolean).join(' · ') || 'Guatemala';
+    const gana = Number(e.pago) > 0 ? `Ganas Q${Number(e.pago).toFixed(0)}` : `Cobras Q${Number(e.cobrar || 0).toFixed(0)} en efectivo`;
+    const viaje = (titulo) => ({
+      tipo: 'viaje', key: 'viaje-' + key, titulo,
+      cuerpo: `${lugar}${e.km ? ' · ' + e.km + ' km' : ''} · ${gana}. Abre la app y acéptalo.`,
+      voz: `Nuevo viaje disponible en ${e.zona || 'la ciudad'}. ${Number(e.pago) > 0 ? 'Ganas ' + Number(e.pago).toFixed(0) + ' quetzales.' : 'Cobras el envío en efectivo.'}`
+    });
+    if (e.estado === 'disponible' && !e.avisado && await reclamar(env, `entregas/${key}/avisado`)) {
+      if (await enviarPush(env, viaje(`🛵 Nuevo viaje · ${e.zona || 'Guatemala'}`), 'motoristas')) res.avisos++;
+    } else if (e.estado === 'disponible' && e.avisado && Date.now() - e.avisado > 5 * 60000 && !e.reavisado && await reclamar(env, `entregas/${key}/reavisado`)) {
+      await enviarPush(env, viaje(`⏰ Viaje sin tomar · ${e.zona || 'Guatemala'}`), 'motoristas');
+      await enviarPush(env, { tipo: 'info', key: key + '-sinmoto', repetir: '1', titulo: '⏰ Nadie ha tomado el viaje', cuerpo: `Pedido de ${(o.cliente || {}).nombre || 'cliente'} lleva 5 minutos sin motorista.`, voz: 'Atención. Nadie ha tomado el viaje todavía.' });
+    }
+    if (['asignado', 'recogido'].includes(e.estado) && !e.avisoCocina && await reclamar(env, `entregas/${key}/avisoCocina`)) {
+      const nm = (e.motoristaNombre || 'Un motorista').split(' ')[0];
+      await enviarPush(env, { tipo: 'info', key: key + '-moto', repetir: '1', titulo: `🛵 ${nm} tomó el pedido de ${(o.cliente || {}).nombre || 'un cliente'}`, cuerpo: `Va en camino a Torrons a recogerlo.`, voz: `${nm} aceptó el viaje y va por el pedido.` });
     }
   }
   return res;

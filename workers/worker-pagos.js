@@ -15,6 +15,13 @@ const ORIGENES = [
   'https://torronsguatemala.com'
 ];
 const PAGGO = 'https://api.paggoapp.com/api';
+const TORRONS = { lat: 14.6495488, lng: -90.5178091 }; // 1a avenida A 1-00, zona 2, El Sauce
+
+function distanciaRecta(lat1, lng1, lat2, lng2) {
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 function esPermitido(origin) {
   return ORIGENES.includes(origin) || /^https:\/\/[a-z0-9-]+\.torronsgt\.pages\.dev$/.test(origin);
@@ -48,6 +55,21 @@ export default {
       if (!esPermitido(origin) && req.headers.get('X-Admin-Key') !== env.ADMIN_KEY) return json({ error: 'Origen no permitido' }, 403);
       if (env.AVISOS) ctx.waitUntil(env.AVISOS.fetch('https://torrons-avisos/revisar').catch(() => {}));
       return json({ ok: true });
+    }
+
+    // ---------- Distancia por calle desde Torrons (lo usa el carrito para calcular el envío) ----------
+    if (url.pathname === '/distancia' && req.method === 'GET') {
+      if (!esPermitido(origin)) return json({ error: 'Origen no permitido' }, 403);
+      const lat = Number(url.searchParams.get('lat')), lng = Number(url.searchParams.get('lng'));
+      if (!(lat > 13.5 && lat < 15.5 && lng > -91.5 && lng < -89.5)) return json({ error: 'Ubicación fuera de Guatemala' }, 400);
+      const recta = distanciaRecta(TORRONS.lat, TORRONS.lng, lat, lng);
+      try {
+        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${TORRONS.lng},${TORRONS.lat};${lng},${lat}?overview=false`, { cf: { cacheTtl: 86400 } });
+        const d = await r.json();
+        const ruta = d && d.routes && d.routes[0];
+        if (ruta && ruta.distance > 0) return json({ km: Math.round(ruta.distance / 100) / 10, min: Math.round(ruta.duration / 60), fuente: 'ruta' });
+      } catch (e) {}
+      return json({ km: Math.round(recta * 1.35 * 10) / 10, min: null, fuente: 'aprox' });
     }
 
     // ---------- Probar aviso (solo administrador) ----------

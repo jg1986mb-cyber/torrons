@@ -174,6 +174,7 @@
         <button class="tab active" data-tab="productos" onclick="showTab('productos')">🏷️ Precios y stock</button>
         <button class="tab" data-tab="ventas" onclick="showTab('ventas')">📊 Ventas</button>
         <button class="tab" data-tab="pedidos" onclick="showTab('pedidos')">🧾 Comandas <span id="new-badge" class="badge-new" style="display:none">0</span></button>
+        <button class="tab" data-tab="motoristas" onclick="showTab('motoristas')">🛵 Motoristas <span id="sol-badge" class="badge-new" style="display:none">0</span></button>
         <button class="tab" data-tab="ajustes" onclick="showTab('ajustes')">⚙️ Ajustes</button>
       </div>
 
@@ -297,6 +298,46 @@
         </div>
       </div>
 
+      <!-- Motoristas -->
+      <div class="panel" id="panel-motoristas">
+        <div class="card">
+          <h3 style="margin-bottom:6px;">🗺️ Viajes en curso</h3>
+          <div id="mapa-motos" style="height:320px;border-radius:12px;border:1px solid #eee;"></div>
+          <div id="viajes-curso" style="margin-top:10px;"></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:6px;">👥 Mis motoristas</h3>
+          <p class="hint">Cada motorista entra a la app <strong>Torrons Motoristas</strong> con su correo y contraseña. La primera vez debe aceptar las condiciones. Gana el <strong>100% del envío</strong>: en Delivery se lo pagas tú (el cliente lo pagó con tarjeta); en Contra entrega lo cobra él en efectivo.</p>
+          <div id="motos-lista"></div>
+          <h4 style="margin:16px 0 6px;">➕ Crear motorista</h4>
+          <div class="addr-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <input id="m-nombre" class="txt" placeholder="Nombre completo">
+            <input id="m-tel" class="txt" placeholder="Teléfono (8 dígitos)">
+            <input id="m-correo" class="txt" type="email" placeholder="Correo (será su usuario)">
+            <input id="m-clave" class="txt" placeholder="Contraseña inicial (mín. 6)">
+          </div>
+          <button class="btn" style="margin-top:10px;" onclick="crearMotorista()">Crear cuenta</button>
+          <p class="hint" id="m-msg" style="margin-top:8px;"></p>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:6px;">📨 Solicitudes "Trabaja con nosotros"</h3>
+          <p class="hint">Llegan desde <a href="trabaja.html" target="_blank">torronsgt.pages.dev/trabaja.html</a>. Toca el teléfono para escribirle por WhatsApp.</p>
+          <div id="solicitudes-lista"></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:6px;">📏 Tarifa de envío por distancia</h3>
+          <p class="hint">El carrito calcula los km por calle desde Torrons hasta la ubicación del cliente. Envío = base + (km × precio por km), con un mínimo. Más lejos del máximo sale "fuera de cobertura".</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div><label>Base (Q)</label><input id="e-base" type="number" step="1" class="txt"></div>
+            <div><label>Por km (Q)</label><input id="e-km" type="number" step="0.5" class="txt"></div>
+            <div><label>Mínimo (Q)</label><input id="e-min" type="number" step="1" class="txt"></div>
+            <div><label>Máximo (km)</label><input id="e-max" type="number" step="1" class="txt"></div>
+          </div>
+          <p class="hint" id="e-ejemplo" style="margin-top:8px;"></p>
+          <button class="btn" onclick="guardarTarifa()">Guardar tarifa</button>
+        </div>
+      </div>
+
       <div class="uid" id="uid-line"></div>
     </section>
   </main>
@@ -334,6 +375,7 @@
     let stock = {}, prices = {}, edits = {}, orders = [];
     let listeners = [];
     let seguimiento = {};
+    let motoristas = {}, solicitudes = {}, entregas = {}, tarifa = { base: 15, porKm: 4, minimo: 20, maxKm: 12 };
     let firstLoad = true;
     const knownKeys = new Set();
     const freshKeys = new Set();
@@ -375,6 +417,10 @@
       listen(db.ref('stock'), s => { stock = s.val() || {}; renderProducts(); });
       listen(db.ref('precios'), s => { prices = s.val() || {}; renderProducts(); });
       listen(db.ref('config/horario'), s => cargarHorario(s.val() || {}));
+      listen(db.ref('motoristas'), s => { motoristas = s.val() || {}; renderMotoristas(); });
+      listen(db.ref('solicitudes').orderByChild('ts').limitToLast(100), s => { solicitudes = s.val() || {}; renderSolicitudes(); });
+      listen(db.ref('entregas').orderByChild('creado').limitToLast(400), s => { entregas = s.val() || {}; renderMotoristas(); renderViajes(); renderOrders(); });
+      listen(db.ref('config/envio'), s => { const v = s.val() || {}; tarifa = { base: Number(v.base) || 15, porKm: Number(v.porKm) || 4, minimo: Number(v.minimo) || 20, maxKm: Number(v.maxKm) || 12 }; cargarTarifa(); });
 
       listen(db.ref('seguimiento').orderByChild('ts').limitToLast(500), s => { seguimiento = s.val() || {}; renderOrders(); revisarAlarma(); });
       cargarAlarma();
@@ -836,7 +882,7 @@
     }
     function orderTotal(o) {
       const sub = Number(o.subtotal) || 0;
-      return o.metodo === 'delivery' ? sub + 30 : sub;
+      const env = Number((o.cliente || {}).envio); return o.metodo === 'delivery' ? sub + (isNaN(env) || !(o.cliente || {}).envio ? 30 : env) : sub;
     }
     function fmtFecha(ts) {
       return ts ? new Date(ts).toLocaleString('es-GT', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
@@ -861,14 +907,14 @@
         const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
         const et = o.estado === 'cancelado' ? 'cancelado' : etapaDe(o);
         const cx = (seguimiento[o.key] || {}).cancelacion || null;
-        const ET_TXT = { recibido: '🆕 Recibido', preparando: '👩‍🍳 Preparando', listo: '✅ Listo', en_camino: '🛵 En camino', cancelado: '❌ Cancelado' };
+        const ET_TXT = { recibido: '🆕 Recibido', preparando: '👩‍🍳 Preparando', listo: '✅ Listo', en_camino: '🛵 En camino', entregado: '📦 Entregado', cancelado: '❌ Cancelado' };
         return `<div class="comanda ${estado} ${freshKeys.has(o.key) || listoParaCocina(o) ? 'nuevo' : ''}">
           <div class="c-head">
             <div>
               <div class="c-name">👤 ${esc(c.nombre || 'Cliente sin nombre')}</div>
               <div class="c-meta">${esc(fmtFecha(o.ts))} · ${esc(METODOS[o.metodo] || o.metodo || '')}${c.tel ? ` · <a href="${waCliente(o)}" target="_blank" rel="noopener" class="wa-link" title="Escribir por WhatsApp">💬 ${esc(c.tel)}</a>` : ''}</div>
               ${dir ? `<div class="c-addr">📍 ${esc(dir)}${c.maps ? ` · <a href="${esc(c.maps)}" target="_blank" rel="noopener">Mapa</a>` : ''}</div>` : ''}
-              ${payBadge(o)} <span class="etapa ${et}">${ET_TXT[et] || et}</span>
+              ${payBadge(o)} <span class="etapa ${et}">${ET_TXT[et] || et}</span> ${entregaBadge(o)}
             </div>
             <div class="c-meta">#${esc(o.key.slice(-5).toUpperCase())}</div>
           </div>
@@ -888,7 +934,8 @@
             <div class="c-actions">
               <button class="btn small" onclick="printComanda('${o.key}')">🖨️ ${o.impreso ? 'Reimprimir' : 'Imprimir'}</button>
               ${et === 'preparando' || (et === 'recibido' && o.impreso) ? `<button class="btn small ok" onclick="marcarListo('${o.key}')">✅ Listo</button>` : ''}
-              ${et === 'listo' && o.metodo !== 'pickup' ? `<button class="btn small" style="background:#1565c0" onclick="marcarEnCamino('${o.key}')">🛵 En camino</button>` : ''}
+              ${o.metodo !== 'pickup' && !entregas[o.key] && (et === 'preparando' || et === 'listo' || (et === 'recibido' && o.impreso)) ? `<button class="btn small" style="background:#6a1b9a" onclick="pedirMotorista('${o.key}')">🛵 Pedir motorista</button>` : ''}
+              ${et === 'listo' && o.metodo !== 'pickup' && !entregas[o.key] ? `<button class="btn small" style="background:#1565c0" onclick="marcarEnCamino('${o.key}')">🛵 En camino</button>` : ''}
               <select class="${estado}" onchange="setOrderState('${o.key}', this.value)">
                 <option value="pendiente" ${estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
                 <option value="confirmado" ${estado === 'confirmado' ? 'selected' : ''}>Confirmado</option>
@@ -942,7 +989,7 @@
         <div class="c l b">${esc(METODOS_TXT[o.metodo] || '')}</div>
         ${dir ? `<div class="c sm">${esc(ne(dir))}</div>` : ''}
         ${pagado ? '<div class="c pagado">PAGADO</div>' : (o.pago ? '<div class="c b">PAGO PENDIENTE</div>' : '<div class="c b">COBRAR EN EFECTIVO</div>')}
-        ${o.metodo === 'cash' ? '<div class="c b">COBRAR ENVIO EN EFECTIVO</div>' : ''}
+        ${o.metodo === 'cash' ? `<div class="c b">COBRAR ENVIO EN EFECTIVO${(o.cliente || {}).envio ? ': Q ' + Number(o.cliente.envio).toFixed(2) : ''}</div>` : ''}
         <div class="hr"></div>
         ${items.map(it => it.extra
           ? `<div class="it sub">${Number(it.cant) || 1} x ${esc(ne(it.nombre).replace(/ \(combo\)/, ''))}</div>`
@@ -996,6 +1043,8 @@
     }
     function marcarListo(key) {
       setSeguimiento(key, { etapa: 'listo' });
+      const o0 = orders.find(x => x.key === key);
+      if (o0 && o0.metodo !== 'pickup' && !entregas[key]) pedirMotorista(key, true);
       db.ref('pedidos/' + key + '/estado').set('confirmado').catch(permError);
       toast('✅ Pedido marcado como listo · el cliente ya lo ve');
     }
@@ -1003,6 +1052,142 @@
       setSeguimiento(key, { etapa: 'en_camino' });
       toast('🛵 Pedido en camino · el cliente ya lo ve');
     }
+    // ---------- Motoristas ----------
+    const EST_ENT = { disponible: '🔎 Buscando motorista…', asignado: '🛵 Va por el pedido', recogido: '🛵 En camino', entregado: '📦 Entregado', cancelado: '❌ Viaje cancelado' };
+    function envioDe(o) { const c = o.cliente || {}; const e = Number(c.envio); return e > 0 ? e : 30; }
+    function entregaBadge(o) {
+      const e = entregas[o.key]; if (!e) return '';
+      return `<span class="etapa" style="background:#f3e5f5;color:#6a1b9a">${EST_ENT[e.estado] || e.estado}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''}</span>`;
+    }
+    async function pedirMotorista(key, silencioso) {
+      const o = orders.find(x => x.key === key); if (!o || entregas[key]) return;
+      const c = o.cliente || {};
+      const env = envioDe(o);
+      const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
+      let tel = String(c.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
+      try {
+        await db.ref('entregas/' + key).set({
+          estado: 'disponible', creado: firebase.database.ServerValue.TIMESTAMP, codigo: key.slice(-5).toUpperCase(),
+          zona: c.zona || '', colonia: c.colonia || '', km: Number(c.km) || 0, metodo: o.metodo,
+          pago: o.metodo === 'delivery' ? env : 0, cobrar: o.metodo === 'cash' ? env : 0
+        });
+        await db.ref('entregasPrivado/' + key).set({
+          cliente: c.nombre || '', tel: c.tel || '', direccion: dir, lat: Number(c.lat) || 0, lng: Number(c.lng) || 0,
+          mapa: c.lat ? `https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}` : (c.maps || ''),
+          wa: tel ? 'https://wa.me/' + tel : '', productos: orderItems(o).filter(i => !i.extra).length
+        });
+        if (pagosCfg.url) fetch(pagosCfg.url + '/notificar').catch(() => {});
+        if (!silencioso) toast('🛵 Avisamos a los motoristas');
+      } catch (e) { permError(e); }
+    }
+    function inicioSemana() { const d = new Date(); const dia = (d.getDay() + 6) % 7; d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - dia); return d.getTime(); }
+    function renderMotoristas() {
+      const el = document.getElementById('motos-lista'); if (!el) return;
+      const sem = inicioSemana();
+      const lista = Object.entries(motoristas);
+      if (!lista.length) { el.innerHTML = '<p class="hint">Aún no tienes motoristas. Créalos abajo.</p>'; return; }
+      el.innerHTML = lista.map(([uid, m]) => {
+        const mios = Object.values(entregas).filter(e => e.motorista === uid && e.estado === 'entregado' && (e.entregadoTs || 0) >= sem);
+        const debo = mios.reduce((a, e) => a + (Number(e.pago) || 0), 0);
+        const efectivo = mios.reduce((a, e) => a + (Number(e.cobrar) || 0), 0);
+        let tel = String(m.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
+        return `<div class="comanda" style="padding:12px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
+            <div><strong>${m.activo ? '🟢' : '⚪'} ${esc(m.nombre || '')}</strong> ${m.enLinea ? '<span class="etapa listo">En línea</span>' : ''}<br>
+              <span class="c-meta">${esc(m.correo || '')} · ${tel ? `<a href="https://wa.me/${tel}" target="_blank">💬 ${esc(m.tel)}</a>` : ''}</span><br>
+              <span class="c-meta">${m.terminos ? '✅ Aceptó condiciones ' + new Date(m.terminos.ts).toLocaleDateString('es-GT') : '⏳ Aún no acepta condiciones'}</span></div>
+            <div style="text-align:right;"><div class="c-meta">Esta semana: <strong>${mios.length} viajes</strong></div>
+              <div>Le debes: <strong>${q(debo)}</strong></div>${efectivo ? `<div class="c-meta">Cobró en efectivo: ${q(efectivo)}</div>` : ''}</div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+            <button class="btn small ${m.activo ? 'ghost' : ''}" onclick="activarMotorista('${uid}', ${!m.activo})">${m.activo ? 'Desactivar' : 'Activar'}</button>
+            <button class="btn small ghost" onclick="claveMotorista('${esc(m.correo || '')}')">Enviar cambio de contraseña</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    function renderViajes() {
+      const el = document.getElementById('viajes-curso'); if (!el) return;
+      const act = Object.entries(entregas).filter(([k, e]) => ['disponible', 'asignado', 'recogido'].includes(e.estado));
+      el.innerHTML = act.length ? act.map(([k, e]) => `<div class="c-meta">#${esc(e.codigo || k.slice(-5))} · ${EST_ENT[e.estado]}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''} · ${esc(e.zona || '')} · ${e.km ? e.km + ' km · ' : ''}${q(e.pago || e.cobrar)}</div>`).join('') : '<p class="hint">No hay viajes en curso.</p>';
+      actualizarMapaMotos(act);
+    }
+    let mapaMotos = null; const marcasMotos = {}; const subsUbic = {};
+    function cargarLeaflet() {
+      if (window.L) return Promise.resolve();
+      return new Promise((ok, mal) => { const c = document.createElement('link'); c.rel = 'stylesheet'; c.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(c); const s = document.createElement('script'); s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload = ok; s.onerror = mal; document.head.appendChild(s); });
+    }
+    async function actualizarMapaMotos(act) {
+      try { await cargarLeaflet(); } catch (e) { return; }
+      const el = document.getElementById('mapa-motos'); if (!el) return;
+      if (!mapaMotos) {
+        mapaMotos = L.map(el).setView([14.6495488, -90.5178091], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapaMotos);
+        L.marker([14.6495488, -90.5178091]).addTo(mapaMotos).bindTooltip('☕ Torrons');
+      }
+      const vivas = new Set(act.filter(([k, e]) => e.estado !== 'disponible').map(([k]) => k));
+      vivas.forEach(k => {
+        if (subsUbic[k]) return;
+        const ref = db.ref('ubicaciones/' + k);
+        const cb = s => { const u = s.val(); if (!u) return; const e = entregas[k] || {};
+          const txt = `🛵 ${e.motoristaNombre || 'Motorista'} · #${e.codigo || ''}`;
+          if (!marcasMotos[k]) marcasMotos[k] = L.marker([u.lat, u.lng]).addTo(mapaMotos).bindTooltip(txt, { permanent: true });
+          else marcasMotos[k].setLatLng([u.lat, u.lng]); };
+        ref.on('value', cb); subsUbic[k] = () => ref.off('value', cb);
+      });
+      Object.keys(subsUbic).forEach(k => { if (!vivas.has(k)) { subsUbic[k](); delete subsUbic[k]; if (marcasMotos[k]) { mapaMotos.removeLayer(marcasMotos[k]); delete marcasMotos[k]; } } });
+    }
+    document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-tab="motoristas"]')) setTimeout(() => mapaMotos && mapaMotos.invalidateSize(), 200); });
+    let appSecundaria = null;
+    async function crearMotorista() {
+      const nombre = document.getElementById('m-nombre').value.trim(), tel = document.getElementById('m-tel').value.trim();
+      const correo = document.getElementById('m-correo').value.trim().toLowerCase(), clave = document.getElementById('m-clave').value;
+      const msg = document.getElementById('m-msg');
+      if (!nombre || !correo || clave.length < 6) { msg.textContent = 'Escribe nombre, correo y una contraseña de al menos 6 caracteres.'; return; }
+      msg.textContent = 'Creando…';
+      try {
+        appSecundaria = appSecundaria || firebase.initializeApp(firebaseConfig, 'secundaria');
+        const cred = await appSecundaria.auth().createUserWithEmailAndPassword(correo, clave);
+        const uid = cred.user.uid;
+        await appSecundaria.auth().signOut();
+        await db.ref('motoristas/' + uid).set({ nombre, tel, correo, activo: true, creado: firebase.database.ServerValue.TIMESTAMP });
+        msg.innerHTML = `✅ Listo. Pásale a ${esc(nombre)}: <strong>usuario</strong> ${esc(correo)} · <strong>contraseña</strong> la que escribiste. Que instale la app Torrons Motoristas.`;
+        ['m-nombre', 'm-tel', 'm-correo', 'm-clave'].forEach(i => document.getElementById(i).value = '');
+      } catch (e) {
+        msg.textContent = e.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene cuenta.' : 'No se pudo crear: ' + e.message;
+      }
+    }
+    function activarMotorista(uid, on) { db.ref('motoristas/' + uid + '/activo').set(!!on).then(() => toast(on ? 'Motorista activado' : 'Motorista desactivado')).catch(permError); }
+    function claveMotorista(correo) {
+      if (!correo) return;
+      appSecundaria = appSecundaria || firebase.initializeApp(firebaseConfig, 'secundaria');
+      appSecundaria.auth().sendPasswordResetEmail(correo).then(() => toast('📧 Le enviamos un correo para cambiar su contraseña')).catch(e => toast('No se pudo: ' + e.message));
+    }
+    function renderSolicitudes() {
+      const el = document.getElementById('solicitudes-lista'); if (!el) return;
+      const l = Object.entries(solicitudes).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
+      const nuevas = l.filter(([k, x]) => !x.revisada).length;
+      const b = document.getElementById('sol-badge'); if (b) { b.textContent = nuevas; b.style.display = nuevas ? 'inline-block' : 'none'; }
+      el.innerHTML = l.length ? l.map(([k, x]) => {
+        let tel = String(x.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
+        return `<div class="comanda" style="padding:10px;margin-bottom:8px;${x.revisada ? 'opacity:.6' : ''}">
+          <strong>${esc(x.nombre)}</strong> · <a href="https://wa.me/${tel}?text=${encodeURIComponent('Hola ' + String(x.nombre).split(' ')[0] + ', te escribimos de Café Torrons por tu solicitud de motorista.')}" target="_blank">💬 ${esc(x.tel)}</a>
+          <div class="c-meta">${esc(new Date(x.ts).toLocaleString('es-GT'))} · Vive en: ${esc(x.zona || '-')} · Moto: ${esc(x.moto || '-')} · Licencia: ${esc(x.licencia || '-')}</div>
+          ${x.disponibilidad ? `<div class="c-meta">Horario: ${esc(x.disponibilidad)}</div>` : ''}${x.experiencia ? `<div class="c-meta">Experiencia: ${esc(x.experiencia)}</div>` : ''}
+          ${x.revisada ? '' : `<button class="btn small ghost" style="margin-top:6px;" onclick="db.ref('solicitudes/${k}/revisada').set(true)">Marcar como revisada</button>`}
+        </div>`; }).join('') : '<p class="hint">Aún no hay solicitudes.</p>';
+    }
+    function cargarTarifa() {
+      const set = (i, v) => { const e = document.getElementById(i); if (e && document.activeElement !== e) e.value = v; };
+      set('e-base', tarifa.base); set('e-km', tarifa.porKm); set('e-min', tarifa.minimo); set('e-max', tarifa.maxKm);
+      const ej = k => Math.max(tarifa.minimo, Math.round(tarifa.base + tarifa.porKm * k));
+      const p = document.getElementById('e-ejemplo'); if (p) p.textContent = `Ejemplos: 2 km → Q${ej(2)} · 5 km → Q${ej(5)} · 10 km → Q${ej(10)}`;
+    }
+    function guardarTarifa() {
+      const v = { base: Number(document.getElementById('e-base').value) || 15, porKm: Number(document.getElementById('e-km').value) || 4, minimo: Number(document.getElementById('e-min').value) || 20, maxKm: Number(document.getElementById('e-max').value) || 12 };
+      db.ref('config/envio').set(v).then(() => toast('✅ Tarifa guardada')).catch(permError);
+    }
+
     function descargarHistorial() {
       const filas = [['Fecha', 'Hora', 'Pedido', 'Cliente', 'Teléfono', 'Entrega', 'Producto', 'Cantidad', 'Precio unitario', 'Importe', 'Total pedido', 'Pago', 'Estado']];
       const PAGO = o => o.pago ? (o.pago.estado === 'pagado' ? 'Tarjeta - pagado' : 'Tarjeta - pendiente') : 'Efectivo/manual';
