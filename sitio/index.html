@@ -2193,6 +2193,8 @@
             precio: Number(item.price) || 0
           };
           if (item.isComboExtra) it.extra = true;
+          const prodCat = (products.find(p => String(p.id) === String(item.id)) || {}).category;
+          if (prodCat) it.cat = prodCat;
           const notas = [];
           if (item.option && !String(item.name).includes(item.option)) notas.push(String(item.option));
           if (item.mensaje && item.mensaje.trim()) notas.push('Nota: ' + item.mensaje.trim().slice(0, 50));

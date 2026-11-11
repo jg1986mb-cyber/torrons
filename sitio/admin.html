@@ -325,6 +325,25 @@
           <div id="solicitudes-lista"></div>
         </div>
         <div class="card">
+          <h3 style="margin-bottom:6px;">⏱️ Cuándo pedir motorista</h3>
+          <p class="hint">El sistema calcula cuánto tarda cada pedido (el plato más lento + 1 min por cada plato adicional) y llama al motorista para que llegue justo cuando esté listo.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div><label>Pedir motorista</label>
+              <select id="mt-modo" class="txt">
+                <option value="imprimir">Al imprimir la comanda (recomendado)</option>
+                <option value="pago">Al aprobarse el pago</option>
+                <option value="listo">Al tocar Listo</option>
+                <option value="manual">Solo manual (botón Pedir motorista)</option>
+              </select></div>
+            <div><label>Minutos que tarda en llegar</label><input id="mt-llegada" type="number" min="0" max="40" class="txt"></div>
+          </div>
+          <p class="hint" id="mt-ejemplo" style="margin-top:8px;"></p>
+          <details style="margin-top:8px;"><summary style="cursor:pointer;font-weight:600;">Minutos de preparación por producto</summary>
+            <div id="prep-lista" style="display:grid;grid-template-columns:1fr 80px;gap:6px 10px;margin-top:10px;align-items:center;"></div>
+          </details>
+          <button class="btn" style="margin-top:10px;" onclick="guardarTiempos()">Guardar tiempos</button>
+        </div>
+        <div class="card">
           <h3 style="margin-bottom:6px;">📏 Tarifa de envío por distancia</h3>
           <p class="hint">El carrito calcula los km por calle desde Torrons hasta la ubicación del cliente. Envío = base + (km × precio por km), con un mínimo. Más lejos del máximo sale "fuera de cobertura".</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -375,6 +394,7 @@
     let stock = {}, prices = {}, edits = {}, orders = [];
     let listeners = [];
     let seguimiento = {};
+    let cfgMoto = { modo: 'imprimir', llegadaMin: 10 }, prepCfg = {};
     let motoristas = {}, solicitudes = {}, entregas = {}, tarifa = { base: 15, porKm: 4, minimo: 20, maxKm: 12 };
     let firstLoad = true;
     const knownKeys = new Set();
@@ -420,6 +440,8 @@
       listen(db.ref('motoristas'), s => { motoristas = s.val() || {}; renderMotoristas(); });
       listen(db.ref('solicitudes').orderByChild('ts').limitToLast(100), s => { solicitudes = s.val() || {}; renderSolicitudes(); });
       listen(db.ref('entregas').orderByChild('creado').limitToLast(400), s => { entregas = s.val() || {}; renderMotoristas(); renderViajes(); renderOrders(); });
+      listen(db.ref('config/motoristas'), s => { cfgMoto = Object.assign({ modo: 'imprimir', llegadaMin: 10 }, s.val() || {}); cargarTiempos(); });
+      listen(db.ref('config/prep'), s => { prepCfg = s.val() || {}; cargarTiempos(); });
       listen(db.ref('config/envio'), s => { const v = s.val() || {}; tarifa = { base: Number(v.base) || 15, porKm: Number(v.porKm) || 4, minimo: Number(v.minimo) || 20, maxKm: Number(v.maxKm) || 12 }; cargarTarifa(); });
 
       listen(db.ref('seguimiento').orderByChild('ts').limitToLast(500), s => { seguimiento = s.val() || {}; renderOrders(); revisarAlarma(); });
@@ -1038,6 +1060,7 @@
       if (Object.keys(upd).length) db.ref('pedidos/' + key).update(upd).catch(permError);
       if (etapaDe(o) === 'recibido') setSeguimiento(key, { etapa: 'preparando' });
       o.impreso = o.impreso || Date.now();
+      if (o.metodo !== 'pickup' && pagosCfg.url) setTimeout(() => fetch(pagosCfg.url + '/notificar').catch(() => {}), 1500);
       detenerAlarma();
       setTimeout(revisarAlarma, 500);
     }
@@ -1066,11 +1089,12 @@
       const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
       let tel = String(c.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
       try {
-        await db.ref('entregas/' + key).set({
-          estado: 'disponible', creado: firebase.database.ServerValue.TIMESTAMP, codigo: key.slice(-5).toUpperCase(),
+        const tx = await db.ref('entregas/' + key).transaction(cur => cur ? undefined : {
+          estado: 'disponible', creado: Date.now(), codigo: key.slice(-5).toUpperCase(),
           zona: c.zona || '', colonia: c.colonia || '', km: Number(c.km) || 0, metodo: o.metodo,
           pago: o.metodo === 'delivery' ? env : 0, cobrar: o.metodo === 'cash' ? env : 0
         });
+        if (!tx.committed) return;
         await db.ref('entregasPrivado/' + key).set({
           cliente: c.nombre || '', tel: c.tel || '', direccion: dir, lat: Number(c.lat) || 0, lng: Number(c.lng) || 0,
           mapa: c.lat ? `https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}` : (c.maps || ''),
@@ -1182,6 +1206,32 @@
       set('e-base', tarifa.base); set('e-km', tarifa.porKm); set('e-min', tarifa.minimo); set('e-max', tarifa.maxKm);
       const ej = k => Math.max(tarifa.minimo, Math.round(tarifa.base + tarifa.porKm * k));
       const p = document.getElementById('e-ejemplo'); if (p) p.textContent = `Ejemplos: 2 km → Q${ej(2)} · 5 km → Q${ej(5)} · 10 km → Q${ej(10)}`;
+    }
+    const PREP_ID = { '11': 14, '13': 10, '12': 8, '28': 7, '9': 8, '10': 6 };
+    const PREP_CAT = { churrasco: 10, hotdog: 6, otros: 8, papas: 8, bebidas: 4, turrones: 1 };
+    function prepDe(p) { const v = prepCfg[String(p.id)]; return v != null ? Number(v) : (PREP_ID[String(p.id)] || PREP_CAT[p.category] || 8); }
+    function cargarTiempos() {
+      const m = document.getElementById('mt-modo'); if (!m) return;
+      if (document.activeElement !== m) m.value = cfgMoto.modo || 'imprimir';
+      const l = document.getElementById('mt-llegada'); if (document.activeElement !== l) l.value = cfgMoto.llegadaMin;
+      const lista = document.getElementById('prep-lista');
+      if (lista && !lista.contains(document.activeElement)) {
+        const prods = (typeof products !== 'undefined' ? products : []).filter(p => p.category !== 'bebidas' || true);
+        lista.innerHTML = prods.map(p => `<span>${p.emoji || ''} ${esc(p.name)}</span><input class="txt prep-in" data-id="${p.id}" type="number" min="0" max="40" value="${prepDe(p)}">`).join('')
+          + `<span>🛠️ Crea tu Torrons</span><input class="txt prep-in" data-id="crea" type="number" min="0" max="40" value="${prepCfg.crea != null ? prepCfg.crea : 10}">`;
+      }
+      const lleg = Number(cfgMoto.llegadaMin) || 10;
+      const ej = document.getElementById('mt-ejemplo');
+      if (ej) ej.textContent = cfgMoto.modo === 'manual' ? 'Solo se pide motorista cuando tocas el botón.' : cfgMoto.modo === 'listo' ? 'Se pide al tocar Listo (la comida espera a la moto).'
+        : `Ejemplo ${cfgMoto.modo === 'pago' ? 'desde que se aprueba el pago' : 'desde que imprimes'}: un café (4 min) → se pide de inmediato; una chorrillana (14 min) → se pide a los ${Math.max(0, 14 - lleg)} min, para que la moto llegue cuando esté lista.`;
+    }
+    function guardarTiempos() {
+      const prep = {};
+      document.querySelectorAll('.prep-in').forEach(i => { const v = Number(i.value); if (!isNaN(v)) prep[i.dataset.id] = Math.max(0, Math.min(40, v)); });
+      Promise.all([
+        db.ref('config/motoristas').update({ modo: document.getElementById('mt-modo').value, llegadaMin: Math.max(0, Math.min(40, Number(document.getElementById('mt-llegada').value) || 10)) }),
+        db.ref('config/prep').set(prep)
+      ]).then(() => toast('✅ Tiempos guardados')).catch(permError);
     }
     function guardarTarifa() {
       const v = { base: Number(document.getElementById('e-base').value) || 15, porKm: Number(document.getElementById('e-km').value) || 4, minimo: Number(document.getElementById('e-min').value) || 20, maxKm: Number(document.getElementById('e-max').value) || 12 };

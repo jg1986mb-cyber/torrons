@@ -116,11 +116,52 @@ function datosPedido(key, o) {
   };
 }
 
+// Minutos de cocina del pedido: el plato más lento (se cocinan a la vez) + 1 min por cada plato extra
+const PREP_ID = { '11': 14, '13': 10, '12': 8, '28': 7, '9': 8, '10': 6 }; // chorrillana, salchipapa, papas, choripán, ave mayo
+const PREP_CATEGORIA = { churrasco: 10, hotdog: 6, otros: 8, papas: 8, bebidas: 4, turrones: 1, crea: 10 };
+function minutosPreparacion(o, prep) {
+  const items = Object.values(o.items || {}).filter(i => !i.extra);
+  if (!items.length) return 5;
+  const min = items.map(i => {
+    const id = String(i.id || '');
+    if (prep[id] != null) return Number(prep[id]) || 0;
+    if (i.detalle || /^c/.test(id) || /crea/i.test(i.nombre || '')) return Number(prep.crea) || PREP_CATEGORIA.crea;
+    return PREP_ID[id] || PREP_CATEGORIA[i.cat] || 8;
+  });
+  const unidades = items.reduce((a, i) => a + (Number(i.cant) || 1), 0);
+  return Math.min(40, Math.max(...min) + Math.max(0, unidades - 1));
+}
+
+// Crea el viaje solo si todavía no existe (escritura condicional con ETag)
+async function crearEntrega(env, key, o, prep) {
+  const c = o.cliente || {};
+  const env_ = Number(c.envio) > 0 ? Number(c.envio) : 30;
+  const r = await db(env, `entregas/${key}.json`, { headers: { 'X-Firebase-ETag': 'true' } });
+  const etag = r.headers.get('ETag');
+  if ((await r.json()) !== null) return null;
+  const entrega = {
+    estado: 'disponible', creado: Date.now(), codigo: key.slice(-5).toUpperCase(),
+    zona: c.zona || '', colonia: c.colonia || '', km: Number(c.km) || 0, metodo: o.metodo, prepMin: prep,
+    pago: o.metodo === 'delivery' ? env_ : 0, cobrar: o.metodo === 'cash' ? env_ : 0, auto: true
+  };
+  const w = await db(env, `entregas/${key}.json`, { method: 'PUT', headers: { 'if-match': etag }, body: JSON.stringify(entrega) });
+  if (!w.ok) return null;
+  let tel = String(c.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
+  await db(env, `entregasPrivado/${key}.json`, { method: 'PUT', body: JSON.stringify({
+    cliente: c.nombre || '', tel: c.tel || '', direccion: [c.calle, c.colonia, c.zona].filter(Boolean).join(', '),
+    lat: Number(c.lat) || 0, lng: Number(c.lng) || 0,
+    mapa: c.lat ? `https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}` : (c.maps || ''),
+    wa: tel ? 'https://wa.me/' + tel : '', productos: Object.values(o.items || {}).filter(i => !i.extra).length
+  }) });
+  return entrega;
+}
+
 async function revisarPedidos(env) {
   if (!env.FIREBASE_SA) return { error: 'Falta FIREBASE_SA' };
   const desde = prefijoLlave(Date.now() - 6 * 3600000);
   const filtro = `orderBy=%22%24key%22&startAt=%22${desde}%22`;
-  const [rp, rs, re] = await Promise.all([db(env, 'pedidos.json?' + filtro), db(env, 'seguimiento.json?' + filtro), db(env, 'entregas.json?' + filtro)]);
+  const [rp, rs, re, rc] = await Promise.all([db(env, 'pedidos.json?' + filtro), db(env, 'seguimiento.json?' + filtro), db(env, 'entregas.json?' + filtro), db(env, 'config.json')]);
+  const config = (await rc.json()) || {};
   const pedidos = (await rp.json()) || {};
   const seg = (await rs.json()) || {};
   const entregas = (await re.json()) || {};
@@ -142,7 +183,7 @@ async function revisarPedidos(env) {
         const r = await env.PAGOS.fetch('https://torrons-pagos/pago?' + qs, { headers: { Origin: 'https://torronsgt.pages.dev' } });
         const d = await r.json();
         if (d && d.pagado) {
-          await db(env, `pedidos/${key}/pago.json`, { method: 'PATCH', body: JSON.stringify({ estado: 'pagado', fechaPago: new Date().toISOString() }) });
+          await db(env, `pedidos/${key}/pago.json`, { method: 'PATCH', body: JSON.stringify({ estado: 'pagado', fechaPago: new Date().toISOString(), pagadoTs: Date.now() }) });
           o.pago.estado = 'pagado';
           if (porFaltaDePago) {
             await db(env, `pedidos/${key}.json`, { method: 'PATCH', body: JSON.stringify({ estado: 'pendiente' }) });
@@ -194,6 +235,31 @@ async function revisarPedidos(env) {
       res.avisos++;
     }
   }
+  // 5a) pedir motorista automáticamente según el tiempo de preparación
+  const cm = config.motoristas || {};
+  const modo = cm.modo || 'imprimir';
+  const llegada = Number(cm.llegadaMin) || 10;
+  if (modo !== 'manual') {
+    for (const key of Object.keys(pedidos)) {
+      const o = pedidos[key]; if (!o || typeof o !== 'object' || entregas[key]) continue;
+      if (o.metodo !== 'delivery' && o.metodo !== 'cash') continue;
+      const sg = seg[key] || {};
+      if (o.estado === 'cancelado' || sg.etapa === 'cancelado') continue;
+      if (o.pago && o.pago.estado !== 'pagado') continue;
+      const prep = minutosPreparacion(o, config.prep || {});
+      let base = null;
+      if (modo === 'pago') base = (o.pago && o.pago.pagadoTs) || o.impreso || o.ts;
+      else if (modo === 'imprimir') base = o.impreso || null;
+      else if (modo === 'listo') base = ['listo', 'en_camino'].includes(sg.etapa) ? Date.now() - 1 : null;
+      if (!base) continue;
+      const espera = modo === 'listo' ? 0 : Math.max(0, prep - llegada) * 60000;
+      if (Date.now() >= base + espera) {
+        const e = await crearEntrega(env, key, o, prep);
+        if (e) { entregas[key] = e; res.motoristasPedidos = (res.motoristasPedidos || 0) + 1; }
+      }
+    }
+  }
+
   // 5) motoristas: viaje nuevo → aviso a los que están en línea; aceptado → aviso a cocina
   for (const key of Object.keys(entregas)) {
     const e = entregas[key]; if (!e || typeof e !== 'object') continue;
