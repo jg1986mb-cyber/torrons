@@ -1833,7 +1833,7 @@
     // ========== ENVÍO POR DISTANCIA ==========
     const TORRONS_POS = [14.6495488, -90.5178091];
     let ENVIO = { base: 15, porKm: 4, minimo: 20, maxKm: 12 };
-    db.ref('config/envio').on('value', s => { const v = s.val() || {}; ENVIO = { base: Number(v.base) || 15, porKm: Number(v.porKm) || 4, minimo: Number(v.minimo) || 20, maxKm: Number(v.maxKm) || 12 }; if (envioCalc) aplicarTarifa(); });
+    setTimeout(() => db.ref('config/envio').on('value', s => { const v = s.val() || {}; ENVIO = { base: Number(v.base) || 15, porKm: Number(v.porKm) || 4, minimo: Number(v.minimo) || 20, maxKm: Number(v.maxKm) || 12 }; if (envioCalc) aplicarTarifa(); }), 0);
     let envioCalc = null; // { lat, lng, km, min, monto, fuera }
     try { const g = JSON.parse(localStorage.getItem('torrons_ubicacion') || 'null'); if (g && g.lat) envioCalc = g; } catch (e) {}
     function aplicarTarifa() {
