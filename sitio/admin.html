@@ -53,7 +53,7 @@
 
     /* Productos */
     .cat-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700; margin: 18px 0 8px; }
-    .prod-row { display: grid; grid-template-columns: 1fr 120px 150px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .prod-row { display: grid; grid-template-columns: 1fr 120px 170px 150px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .prod-row:last-child { border-bottom: none; }
     .prod-name { font-weight: 600; font-size: 0.93rem; }
     .prod-base { font-size: 0.78rem; color: var(--muted); }
@@ -140,7 +140,14 @@
     @media (max-width: 600px) {
       .prod-row { grid-template-columns: 1fr 100px; }
       .prod-row .stock-cell { grid-column: 1 / -1; }
+      .prod-row .desc-cell { grid-column: 1 / -1; }
     }
+    .desc-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .desc-btn { border: 1.5px dashed #c9c2bb; background: #fff; color: #666; border-radius: 10px; padding: 7px 10px; font-weight: 700; font-size: .82rem; cursor: pointer; font-family: inherit; }
+    .desc-btn.on { border: 1.5px solid #ff9800; background: linear-gradient(135deg,#ffeb3b,#ff9800); color: #4a1d00; }
+    .desc-in { width: 64px !important; padding: 7px 8px !important; text-align: center; font-weight: 700; }
+    .desc-final { font-size: .82rem; font-weight: 700; color: #c41e3a; white-space: nowrap; }
+    .desc-final s { color: #999; font-weight: 500; margin-right: 4px; }
   </style>
 </head>
 <body>
@@ -436,6 +443,7 @@
       document.getElementById('uid-line').textContent = 'Sesión: ' + (user.email || '') + ' · UID: ' + user.uid;
       listen(db.ref('stock'), s => { stock = s.val() || {}; renderProducts(); });
       listen(db.ref('precios'), s => { prices = s.val() || {}; renderProducts(); });
+      listen(db.ref('config/descuentos'), s => { descuentos = s.val() || {}; renderProducts(); });
       listen(db.ref('config/horario'), s => cargarHorario(s.val() || {}));
       listen(db.ref('motoristas'), s => { motoristas = s.val() || {}; renderMotoristas(); });
       listen(db.ref('solicitudes').orderByChild('ts').limitToLast(100), s => { solicitudes = s.val() || {}; renderSolicitudes(); });
@@ -768,6 +776,7 @@
               <input type="number" min="1" step="0.5" inputmode="decimal" value="${val}"
                 class="${edits.hasOwnProperty(c.key) ? 'changed' : ''}" oninput="editPrice('${c.key}', this)">
             </div>
+            <div class="desc-cell">${descCell(c)}</div>
             <div class="stock-cell">
               <button class="stock-btn ${on ? 'on' : 'off'}" onclick="toggleStock('${c.key}', ${!on})">${on ? '✅ Disponible' : '❌ Agotado'}</button>
             </div>
@@ -775,6 +784,29 @@
         }).join('')}
       `).join('');
       updateSaveBar();
+    }
+
+    // ---------- Descuentos (solo productos del menú) ----------
+    var descuentos = {};
+    function precioConDesc(precio, pct) { return Math.round(precio * (1 - pct / 100) * 100) / 100; }
+    function descCell(c) {
+      if (/^[cx]_/.test(c.key)) return '';
+      const pct = Number(descuentos[c.key]) || 0;
+      if (!pct) return `<button class="desc-btn" onclick="activarDesc('${c.key}')">🏷️ Descuento</button>`;
+      const precio = currentPrice(c.key);
+      return `<button class="desc-btn on" onclick="quitarDesc('${c.key}')" title="Quitar descuento">🔥 Activo ✕</button>
+        <input class="desc-in" type="number" min="1" max="90" step="1" inputmode="numeric" value="${pct}" onchange="cambiarDesc('${c.key}', this.value)"><b>%</b>
+        <span class="desc-final"><s>${q(precio)}</s>${q(precioConDesc(precio, pct))}</span>`;
+    }
+    function guardarDesc(id, pct) {
+      return db.ref('config/descuentos/' + id).set(pct || null).catch(permError);
+    }
+    function activarDesc(id) { guardarDesc(id, 20).then(() => toast('🔥 Descuento 20% activado · ajusta el %')); }
+    function quitarDesc(id) { guardarDesc(id, null).then(() => toast('Descuento quitado')); }
+    function cambiarDesc(id, v) {
+      const pct = Math.round(Number(v));
+      if (!(pct >= 1 && pct <= 90)) { toast('El descuento debe ser de 1% a 90%'); renderProducts(); return; }
+      guardarDesc(id, pct).then(() => toast('✅ Descuento ' + pct + '% guardado'));
     }
 
     function editPrice(id, input) {

@@ -862,6 +862,25 @@
     .product-card.out-of-stock .product-img {
       position: relative;
     }
+
+    /* ===== Ofertas con descuento ===== */
+    .product-card.en-oferta { box-shadow: 0 0 0 3px #ffb300, 0 10px 30px rgba(255,120,0,.35); }
+    .promo-cinta { position: absolute; top: 14px; left: -6px; z-index: 3; background: linear-gradient(90deg,#e53935,#ff6d00); color: #fff;
+      font-weight: 800; font-size: 1.05rem; letter-spacing: 1px; padding: 7px 18px 7px 16px; border-radius: 0 30px 30px 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+    .promo-sello { position: absolute; top: 10px; right: 10px; z-index: 3; width: 92px; height: 92px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff176, #ffc400 55%, #ff9100); color: #b71c1c; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; transform: rotate(-12deg); border: 3px dashed #b71c1c; box-shadow: 0 6px 16px rgba(0,0,0,.3);
+      animation: promoLatido 1.4s ease-in-out infinite; }
+    .promo-sello b { font-size: 1.75rem; line-height: 1; font-weight: 900; }
+    .promo-sello small { font-size: .7rem; font-weight: 800; letter-spacing: 1px; }
+    @keyframes promoLatido { 0%,100% { transform: rotate(-12deg) scale(1); } 50% { transform: rotate(-12deg) scale(1.1); } }
+    .promo-price { display: flex; flex-direction: column; line-height: 1.1; }
+    .promo-antes { font-size: .95rem; color: #888; text-decoration: line-through; text-decoration-color: #e53935; text-decoration-thickness: 2px; }
+    .promo-ahora { font-size: 1.75rem; font-weight: 900; color: #e53935; }
+    .promo-ahora span { font-size: .9rem; font-weight: 700; margin-right: 2px; }
+    .promo-ahorro { display: inline-block; margin-top: 4px; background: #2e7d32; color: #fff; font-size: .72rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; align-self: flex-start; }
+    @media (prefers-reduced-motion: reduce) { .promo-sello { animation: none; } }
     .soldout-badge {
       position: absolute;
       top: 12px;
@@ -2154,12 +2173,42 @@
     const COMBO_BASE_PRICES = {};
     [COMBO_PAPAS].concat(COMBO_LIQUIDS).forEach(x => { COMBO_BASE_PRICES[x.key] = x.price; });
 
+    // Descuentos por producto (config/descuentos/{id} = %), activados desde admin.html
+    var PRECIOS_DATA = {}, DESCUENTOS = {};
+    function aplicarPreciosProductos() {
+      products.forEach(p => {
+        const nuevo = Number(PRECIOS_DATA[p.id]);
+        const lista = (nuevo > 0) ? nuevo : BASE_PRICES[p.id];
+        const pct = Math.round(Number(DESCUENTOS[p.id]) || 0);
+        if (pct >= 1 && pct <= 90) {
+          p.price = Math.round(lista * (1 - pct / 100) * 100) / 100;
+          p.precioAntes = lista; p.descuento = pct;
+        } else {
+          p.price = lista; delete p.precioAntes; delete p.descuento;
+        }
+      });
+    }
+    function refrescarPreciosCarrito() {
+      let cambio = false;
+      cart.forEach(item => {
+        if (typeof item.id !== 'number' || item.isComboExtra) return;
+        const prod = products.find(x => x.id === item.id);
+        if (prod && item.price !== prod.price) { item.price = prod.price; cambio = true; }
+      });
+      if (cambio) saveCart();
+      renderProducts(currentFilter);
+      updateCartUI();
+    }
+    db.ref('config/descuentos').on('value', (snapshot) => {
+      DESCUENTOS = snapshot.val() || {};
+      aplicarPreciosProductos();
+      refrescarPreciosCarrito();
+    });
+
     db.ref('precios').on('value', (snapshot) => {
       const data = snapshot.val() || {};
-      products.forEach(p => {
-        const nuevo = Number(data[p.id]);
-        p.price = (nuevo > 0) ? nuevo : BASE_PRICES[p.id];
-      });
+      PRECIOS_DATA = data;
+      aplicarPreciosProductos();
       CREA_BASES.concat(CREA_INGS).forEach(x => {
         const nuevo = Number(data['c_' + x.key]);
         x.price = (nuevo > 0) ? nuevo : CREA_BASE_PRICES[x.key];
@@ -2258,14 +2307,20 @@
           : '<button class="add-btn soldout-btn" disabled>Agotado</button>';
 
         return (
-          '<div class="product-card ' + (available ? '' : 'out-of-stock') + '" data-category="' + p.category + '">' +
-            '<div class="product-img">' + badge + imgHtml + '</div>' +
+          '<div class="product-card ' + (available ? '' : 'out-of-stock') + (p.descuento ? ' en-oferta' : '') + '" data-category="' + p.category + '">' +
+            '<div class="product-img">' + badge + imgHtml +
+              (p.descuento ? '<div class="promo-cinta">🔥 OFERTA</div><div class="promo-sello"><b>-' + p.descuento + '%</b><small>DCTO</small></div>' : '') +
+            '</div>' +
             '<div class="product-body">' +
               '<div class="product-cat">' + catLabel + '</div>' +
               '<div class="product-name">' + p.name + '</div>' +
               '<div class="product-desc">' + p.desc + '</div>' +
               '<div class="product-footer">' +
-                '<div class="product-price"><span>Q</span> ' + p.price.toFixed(2) + '</div>' +
+                (p.descuento
+                  ? '<div class="promo-price"><div class="promo-antes">Q ' + p.precioAntes.toFixed(2) + '</div>' +
+                    '<div class="promo-ahora"><span>Q</span>' + p.price.toFixed(2) + '</div>' +
+                    '<div class="promo-ahorro">Ahorras Q' + (p.precioAntes - p.price).toFixed(2) + '</div></div>'
+                  : '<div class="product-price"><span>Q</span> ' + p.price.toFixed(2) + '</div>') +
                 btnHtml +
               '</div>' +
             '</div>' +
