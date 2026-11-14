@@ -553,7 +553,7 @@
       listen(db.ref('config/horario'), s => cargarHorario(s.val() || {}));
       listen(db.ref('motoristas'), s => { motoristas = s.val() || {}; renderMotoristas(); });
       listen(db.ref('solicitudes').orderByChild('ts').limitToLast(100), s => { solicitudes = s.val() || {}; renderSolicitudes(); });
-      listen(db.ref('entregas').orderByChild('creado').limitToLast(400), s => { entregas = s.val() || {}; renderMotoristas(); renderViajes(); renderOrders(); });
+      listen(db.ref('entregas').orderByChild('creado').limitToLast(400), s => { entregas = s.val() || {}; renderMotoristas(); renderViajes(); renderOrders(); vencerViajes(); });
       listen(db.ref('config/motoristas'), s => { cfgMoto = Object.assign({ modo: 'imprimir', llegadaMin: 10 }, s.val() || {}); cargarTiempos(); });
       listen(db.ref('config/prep'), s => { prepCfg = s.val() || {}; cargarTiempos(); });
       listen(db.ref('config/envio'), s => { const v = s.val() || {}; tarifa = { base: Number(v.base) || 15, porKm: Number(v.porKm) || 4, minimo: Number(v.minimo) || 20, maxKm: Number(v.maxKm) || 12 }; cargarTarifa(); });
@@ -1138,7 +1138,7 @@
               ${c.tel ? `<button class="btn small" style="background:#f57f17" onclick="cupDesdeComanda('${o.key}')">🎁 ${cuponDePedido(o.key) ? 'Cupón ✓' : 'Regalar cupón'}</button>` : ''}
               <button class="btn small" onclick="printComanda('${o.key}')">🖨️ ${o.impreso ? 'Reimprimir' : 'Imprimir'}</button>
               ${et === 'preparando' || (et === 'recibido' && o.impreso) ? `<button class="btn small ok" onclick="marcarListo('${o.key}')">✅ Listo</button>` : ''}
-              ${o.metodo !== 'pickup' && !entregas[o.key] && (et === 'preparando' || et === 'listo' || (et === 'recibido' && o.impreso)) ? `<button class="btn small" style="background:#6a1b9a" onclick="pedirMotorista('${o.key}')">🛵 Pedir motorista</button>` : ''}
+              ${o.metodo !== 'pickup' && !viajeVivo(o.key) && (et === 'preparando' || et === 'listo' || (et === 'recibido' && o.impreso)) ? `<button class="btn small" style="background:#6a1b9a" onclick="pedirMotorista('${o.key}')">🛵 ${entregas[o.key] ? 'Pedir motorista otra vez' : 'Pedir motorista'}</button>` : ''}
               ${et === 'listo' && o.metodo !== 'pickup' && !entregas[o.key] ? `<button class="btn small" style="background:#1565c0" onclick="marcarEnCamino('${o.key}')">🛵 En camino</button>` : ''}
               <select class="${estado}" onchange="setOrderState('${o.key}', this.value)">
                 <option value="pendiente" ${estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
@@ -1260,20 +1260,38 @@
       toast('🛵 Pedido en camino · el cliente ya lo ve');
     }
     // ---------- Motoristas ----------
-    const EST_ENT = { disponible: '🔎 Buscando motorista…', asignado: '🛵 Va por el pedido', recogido: '🛵 En camino', entregado: '📦 Entregado', cancelado: '❌ Viaje cancelado' };
+    const EST_ENT = { disponible: '🔎 Buscando motorista…', asignado: '🛵 Va por el pedido', recogido: '🛵 En camino', entregado: '📦 Entregado', cancelado: '❌ Viaje cancelado', vencido: '⏰ Nadie lo aceptó (10 min)' };
+    const VENCE_VIAJE_MIN = 10;
+    function viajeVivo(key) { const e = entregas[key]; return !!e && !['cancelado', 'vencido'].includes(e.estado); }
+    function quitarViaje(key) {
+      const e = entregas[key]; if (!e) return;
+      const enCurso = e.estado === 'asignado' || e.estado === 'recogido';
+      if (!confirm(enCurso ? `El viaje #${e.codigo || ''} ya lo tiene ${e.motoristaNombre || 'un motorista'}. ¿Cancelarlo de todas formas? Avísale por WhatsApp.` : `¿Quitar el viaje #${e.codigo || ''} de la lista de los motoristas?`)) return;
+      db.ref('entregas/' + key).update({ estado: 'cancelado', canceladoTs: Date.now() }).then(() => { db.ref('ubicaciones/' + key).remove().catch(() => {}); toast('🗑️ Viaje quitado'); }).catch(permError);
+    }
+    // Los viajes que nadie acepta en 10 minutos se quitan solos
+    function vencerViajes() {
+      if (!auth.currentUser) return;
+      const lim = Date.now() - VENCE_VIAJE_MIN * 60000;
+      Object.entries(entregas).forEach(([k, e]) => {
+        if (e.estado === 'disponible' && (Number(e.creado) || 0) < lim) db.ref('entregas/' + k).update({ estado: 'vencido', vencidoTs: Date.now() }).catch(() => {});
+      });
+    }
+    setInterval(vencerViajes, 30000);
     function envioDe(o) { const c = o.cliente || {}; const e = Number(c.envio); return e > 0 ? e : 30; }
     function entregaBadge(o) {
       const e = entregas[o.key]; if (!e) return '';
-      return `<span class="etapa" style="background:#f3e5f5;color:#6a1b9a">${EST_ENT[e.estado] || e.estado}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''}</span>`;
+      const min = e.estado === 'disponible' ? Math.max(0, VENCE_VIAJE_MIN - Math.floor((Date.now() - (Number(e.creado) || 0)) / 60000)) : null;
+      return `<span class="etapa" style="background:#f3e5f5;color:#6a1b9a">${EST_ENT[e.estado] || e.estado}${min != null ? ' · se quita en ' + min + ' min' : ''}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''}</span>${['disponible', 'asignado', 'recogido'].includes(e.estado) ? ` <button class="btn small ghost" style="padding:2px 8px" onclick="quitarViaje('${o.key}')" title="Quitar viaje">🗑️</button>` : ''}`;
     }
     async function pedirMotorista(key, silencioso) {
-      const o = orders.find(x => x.key === key); if (!o || entregas[key]) return;
+      const o = orders.find(x => x.key === key); if (!o || viajeVivo(key)) return;
       const c = o.cliente || {};
       const env = envioDe(o);
       const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
       let tel = String(c.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
       try {
-        const tx = await db.ref('entregas/' + key).transaction(cur => cur ? undefined : {
+        const tx = await db.ref('entregas/' + key).transaction(cur => cur && !['cancelado', 'vencido'].includes(cur.estado) ? undefined : {
           estado: 'disponible', creado: Date.now(), codigo: key.slice(-5).toUpperCase(),
           zona: c.zona || '', colonia: c.colonia || '', km: Number(c.km) || 0, metodo: o.metodo,
           pago: o.metodo === 'delivery' ? env : 0, cobrar: o.metodo === 'cash' ? env : 0
@@ -1317,7 +1335,7 @@
     function renderViajes() {
       const el = document.getElementById('viajes-curso'); if (!el) return;
       const act = Object.entries(entregas).filter(([k, e]) => ['disponible', 'asignado', 'recogido'].includes(e.estado));
-      el.innerHTML = act.length ? act.map(([k, e]) => `<div class="c-meta">#${esc(e.codigo || k.slice(-5))} · ${EST_ENT[e.estado]}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''} · ${esc(e.zona || '')} · ${e.km ? e.km + ' km · ' : ''}${q(e.pago || e.cobrar)}</div>`).join('') : '<p class="hint">No hay viajes en curso.</p>';
+      el.innerHTML = act.length ? act.map(([k, e]) => `<div class="c-meta" style="display:flex;align-items:center;gap:8px;padding:4px 0;"><span style="flex:1">#${esc(e.codigo || k.slice(-5))} · ${EST_ENT[e.estado]}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''} · ${esc(e.zona || '')} · ${e.km ? e.km + ' km · ' : ''}${q(e.pago || e.cobrar)}</span><button class="btn small ghost" onclick="quitarViaje('${k}')">🗑️ Quitar</button></div>`).join('') : '<p class="hint">No hay viajes en curso.</p>';
       actualizarMapaMotos(act);
     }
     let mapaMotos = null; const marcasMotos = {}; const subsUbic = {};

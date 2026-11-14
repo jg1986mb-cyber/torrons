@@ -61,6 +61,8 @@
     .modal h3 { margin-bottom: 8px; }
     .nuevo-viaje { animation: brillo 1.2s ease 3; }
     @keyframes brillo { 50% { box-shadow: 0 0 0 4px rgba(46,125,50,.45); } }
+    .x-ocultar { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: none; background: #f1f1f1; color: #777; font-size: 1rem; font-weight: 700; cursor: pointer; }
+    .vence { font-size: .78rem; color: #8d6e63; margin-top: 4px; font-weight: 600; }
     .gps { font-size: .8rem; color: var(--azul); margin-top: 8px; font-weight: 600; }
   </style>
 </head>
@@ -81,6 +83,15 @@
       'Gano el 100% del envío de cada viaje. Los pagados con tarjeta se liquidan cada semana.',
       'Café Torrons puede desactivar mi cuenta si no cumplo estas condiciones.'
     ];
+    const VENCE_MIN = 10; // los viajes que nadie acepta en 10 min desaparecen
+    let ocultos = new Set();
+    try { const o = JSON.parse(localStorage.getItem('motoOcultos') || '{}'); Object.keys(o).forEach(k => { if (Date.now() - o[k] < 864e5) ocultos.add(k); }); } catch (e) {}
+    function ocultarViaje(k) {
+      ocultos.add(k);
+      try { const o = JSON.parse(localStorage.getItem('motoOcultos') || '{}'); o[k] = Date.now(); localStorage.setItem('motoOcultos', JSON.stringify(o)); } catch (e) {}
+      pintar(); aviso('Viaje quitado de tu lista');
+    }
+    setInterval(() => { if (enPrincipal) pintar(); }, 30000);
     const TORRONS_MAPA = 'https://www.google.com/maps/dir/?api=1&destination=14.6495488,-90.5178091';
 
     // App con nombre propio: su sesión no se mezcla con la del administrador en el mismo sitio
@@ -242,7 +253,8 @@
       if (!enPrincipal || !$('actual')) return;
       const todas = Object.entries(ultimas).map(([k, v]) => Object.assign({ key: k }, v));
       const actual = todas.find(e => e.motorista === uid && (e.estado === 'asignado' || e.estado === 'recogido'));
-      const disp = todas.filter(e => e.estado === 'disponible').sort((a, b) => num(a.creado) - num(b.creado));
+      const lim = Date.now() - VENCE_MIN * 60000;
+      const disp = todas.filter(e => e.estado === 'disponible' && num(e.creado) >= lim && !ocultos.has(e.key)).sort((a, b) => num(a.creado) - num(b.creado));
 
       // avisar viajes nuevos
       const nuevos = vistos ? disp.filter(e => !vistos.has(e.key)) : [];
@@ -257,9 +269,11 @@
       $('disponibles').innerHTML = disp.length ? disp.map(e => {
         const pago = num(e.pago), cobrar = num(e.cobrar), km = num(e.km);
         return `<div class="card ${nuevos.some(n => n.key === e.key) ? 'nuevo-viaje' : ''}">
-          <div class="t1">📍 ${esc(e.zona || 'Zona')}${e.colonia ? ' · ' + esc(e.colonia) : ''}</div>
+          <div style="display:flex;gap:8px;align-items:flex-start;"><div class="t1" style="flex:1">📍 ${esc(e.zona || 'Zona')}${e.colonia ? ' · ' + esc(e.colonia) : ''}</div>
+            <button class="x-ocultar" onclick="ocultarViaje('${e.key}')" title="Quitar de mi lista">✕</button></div>
           <div class="ganas">${km > 0 ? km + ' km desde Torrons · ' : ''}${pago > 0 ? 'Ganas ' + q(pago) : 'Cobras ' + q(cobrar) + ' en efectivo (es tuyo)'}</div>
           <div class="gris" style="margin-top:4px;">Pedido #${esc(e.codigo || '')} · recoger en 1a av. A 1-00, zona 2</div>
+          <div class="vence">⏱️ Disponible ${Math.max(1, VENCE_MIN - Math.floor((Date.now() - num(e.creado)) / 60000))} min más</div>
           ${actual ? '<button class="btn claro" disabled>Termina tu viaje actual primero</button>' : `<button class="btn verde" onclick="aceptar('${e.key}', this)">✅ Aceptar viaje</button>`}
         </div>`;
       }).join('') : '<p class="vacio">No hay viajes por ahora. Te avisamos cuando haya uno.</p>';
