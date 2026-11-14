@@ -2077,9 +2077,16 @@
     // ========== CUPONES DE DESCUENTO ==========
     var cupon = null; // { code, pct }
     try { const c0 = JSON.parse(localStorage.getItem('torronsCupon') || 'null'); if (c0 && c0.code && c0.pct > 0) cupon = c0; } catch (e) {}
+    // No acumulable: el cupón no aplica a productos que ya están en oferta
+    function itemEnOferta(item) {
+      if (typeof item.id !== 'number' || item.isComboExtra) return false;
+      const p = (typeof products !== 'undefined' ? products : []).find(x => x.id === item.id);
+      return !!(p && p.descuento);
+    }
+    function getBaseCupon() { return cart.reduce((s, it) => s + (itemEnOferta(it) ? 0 : it.price * it.qty), 0); }
     function getCartDescuento() {
       if (!cupon || !cart.length) return 0;
-      return Math.round(getCartSubtotal() * cupon.pct) / 100;
+      return Math.round(getBaseCupon() * cupon.pct) / 100;
     }
     function normCupon(t) {
       let c = String(t || '').toUpperCase().replace(/[^A-Z0-9-]/g, '');
@@ -2115,7 +2122,7 @@
       cupon = { code, pct: r.pct, vence: r.vence, conTel: r.conTel };
       try { localStorage.setItem('torronsCupon', JSON.stringify(cupon)); } catch (e) {}
       updateCartUI();
-      showToast(`🎉 ¡Cupón aplicado! ${r.pct}% de descuento`);
+      showToast(getCartDescuento() > 0 ? `🎉 ¡Cupón aplicado! ${r.pct}% de descuento` : '🔥 Tus productos ya están en oferta: el cupón no es acumulable');
     }
     function quitarCupon(silencio) {
       cupon = null;
@@ -2130,9 +2137,9 @@
       if (cupon) {
         const vence = cupon.vence ? new Date(cupon.vence).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
         box.innerHTML = `<div class="cupon-on"><div class="cb-pct">-${cupon.pct}%</div>
-          <div class="cb-txt">🎉 <strong>${cupon.code}</strong> aplicado<br>Ahorras <strong>Q ${getCartDescuento().toFixed(2)}</strong>${vence ? ' · vence ' + vence : ''}${cupon.conTel ? '<br><small>Válido con el teléfono al que te lo enviamos</small>' : ''}</div>
+          <div class="cb-txt">🎉 <strong>${cupon.code}</strong> aplicado<br>${getCartDescuento() > 0 ? `Ahorras <strong>Q ${getCartDescuento().toFixed(2)}</strong>` : '<strong style="color:#c62828">Tus productos ya están en oferta 🔥</strong>'}${vence ? ' · vence ' + vence : ''}${cart.some(itemEnOferta) ? '<br><small>🔥 No acumulable: no aplica a productos en oferta</small>' : ''}${cupon.conTel ? '<br><small>Válido con el teléfono al que te lo enviamos</small>' : ''}</div>
           <button class="cb-x" onclick="quitarCupon()" title="Quitar cupón">✕</button></div>`;
-        row.style.display = cart.length ? 'flex' : 'none';
+        row.style.display = cart.length && getCartDescuento() > 0 ? 'flex' : 'none';
         document.getElementById('cart-cupon-label').textContent = `🎟️ Cupón (−${cupon.pct}%)`;
         document.getElementById('cart-cupon').textContent = `−Q ${getCartDescuento().toFixed(2)}`;
       } else {
@@ -2355,7 +2362,7 @@
           estado: 'pendiente',
           items: items
         };
-        const cup = cupon ? { codigo: cupon.code, pct: cupon.pct, descuento: getCartDescuento() } : null;
+        const cup = cupon && getCartDescuento() > 0 ? { codigo: cupon.code, pct: cupon.pct, descuento: getCartDescuento() } : null;
         if (cup) datos.cupon = cup;
         ref.set(datos).then(() => {
           if (cup) return db.ref('cupones/' + cup.codigo + '/usado').set({ pedido: ref.key, ts: firebase.database.ServerValue.TIMESTAMP });
@@ -2530,7 +2537,7 @@
         html += `• ${item.qty}x ${item.name} — Q ${(item.price * item.qty).toFixed(2)}<br>`;
       });
       html += `<br>Subtotal: Q ${getCartSubtotal().toFixed(2)}<br>`;
-      if (cupon) html += `<span style="color:#2e7d32;font-weight:700">🎟️ Cupón ${cupon.code} (−${cupon.pct}%): −Q ${getCartDescuento().toFixed(2)}</span><br>`;
+      if (cupon && getCartDescuento() > 0) html += `<span style="color:#2e7d32;font-weight:700">🎟️ Cupón ${cupon.code} (−${cupon.pct}%): −Q ${getCartDescuento().toFixed(2)}</span><br>`;
       html += `${getDeliveryLabel()}: ${getDeliveryText()}<br>`;
       if (deliveryMethod === 'cash') {
         html += `<strong>Total productos: Q ${getCartTotal().toFixed(2)}</strong><br>`;
@@ -2586,7 +2593,7 @@
     }
 
     async function confirmAndSendWhatsApp() {
-      if (cupon) {
+      if (cupon && getCartDescuento() > 0) {
         const btn = document.getElementById('confirm-btn');
         const phone0 = document.getElementById('customer-phone').value.trim();
         if (!phone0) { showToast('Por favor completa Nombre y Teléfono'); return; }
@@ -2652,7 +2659,7 @@
       });
       m += `${SEP}${NL}`;
       m += `Subtotal: Q ${getCartSubtotal().toFixed(2)}${NL}`;
-      if (cupon) m += `🎟️ Cupón ${cupon.code} (−${cupon.pct}%): −Q ${getCartDescuento().toFixed(2)}${NL}`;
+      if (cupon && getCartDescuento() > 0) m += `🎟️ Cupón ${cupon.code} (−${cupon.pct}%): −Q ${getCartDescuento().toFixed(2)}${NL}`;
       if (deliveryMethod === 'delivery') {
         m += `Envío (${envioCalc.km} km): Q ${getDeliveryFee().toFixed(2)}${NL}`;
         m += `*TOTAL: Q ${getCartTotal().toFixed(2)}*${NL}${NL}`;
