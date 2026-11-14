@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Torrons Motoristas</title>
+  <meta name="description" content="App para motoristas de Café Torrons: acepta viajes, entrega y revisa tus ganancias.">
+  <meta name="theme-color" content="#e86a17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Motoristas">
+  <link rel="manifest" href="motoristas.webmanifest">
+  <link rel="apple-touch-icon" href="imagenes/moto-icon-180.png">
+  <link rel="icon" type="image/png" href="imagenes/moto-icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <style>
+    :root { --naranja: #e86a17; --rojo: #c41e3a; --verde: #2e7d32; --azul: #1565c0; --gris: #666; --fondo: #f7f3ef; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Poppins', sans-serif; background: var(--fondo); color: #1e1e1e; min-height: 100vh; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+    .wrap { max-width: 520px; margin: 0 auto; padding: 14px 14px 40px; }
+    .card { background: #fff; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    h1 { color: var(--naranja); font-size: 1.6rem; text-align: center; margin: 34px 0 6px; }
+    h2 { color: var(--rojo); font-size: 1.05rem; margin: 18px 0 8px; }
+    p { line-height: 1.45; }
+    .centro { text-align: center; }
+    .gris { color: var(--gris); font-size: .9rem; }
+    input[type=email], input[type=password] { width: 100%; padding: 14px; border: 1.5px solid #ddd; border-radius: 12px; font-size: 1rem; font-family: inherit; margin-top: 10px; background: #fff; }
+    input:focus { outline: none; border-color: var(--naranja); }
+    .btn { display: block; width: 100%; border: none; border-radius: 14px; padding: 15px 14px; margin-top: 10px; color: #fff; font-family: inherit; font-size: 1.02rem; font-weight: 700; text-align: center; text-decoration: none; cursor: pointer; background: var(--naranja); }
+    .btn:disabled { opacity: .6; }
+    .btn.verde { background: var(--verde); } .btn.rojo { background: var(--rojo); } .btn.azul { background: var(--azul); }
+    .btn.wa { background: #25d366; } .btn.oscuro { background: #444; } .btn.gris { background: #9e9e9e; } .btn.claro { background: #ddd; color: #777; }
+    .link { background: none; border: none; color: var(--naranja); font-family: inherit; font-weight: 700; font-size: .9rem; margin-top: 12px; cursor: pointer; text-decoration: underline; }
+    .cab { display: flex; align-items: center; gap: 10px; }
+    .cab .hola { flex: 1; font-size: 1.35rem; font-weight: 800; }
+    .switch { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .9rem; cursor: pointer; user-select: none; }
+    .switch .pista { width: 54px; height: 32px; border-radius: 999px; background: #bbb; position: relative; transition: background .2s; }
+    .switch .pista:after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+    .switch.on .pista { background: var(--verde); } .switch.on .pista:after { left: 25px; }
+    .estado { margin-top: 8px; padding: 10px 12px; border-radius: 12px; font-size: .86rem; font-weight: 600; }
+    .estado.off { background: #eee; color: #555; } .estado.on { background: #e8f5e9; color: #1b5e20; }
+    .instalar { background: #fff4e6; border: 1.5px dashed var(--naranja); border-radius: 14px; padding: 12px 14px; font-size: .88rem; margin-bottom: 12px; }
+    .instalar b { color: var(--naranja); }
+    .t1 { font-size: 1.08rem; font-weight: 800; }
+    .t1.naranja { color: var(--naranja); }
+    .linea { margin-top: 6px; font-size: .95rem; }
+    .ganas { color: var(--verde); font-weight: 700; margin-top: 4px; }
+    .cobra { color: var(--rojo); font-weight: 800; margin-top: 8px; }
+    .vacio { color: #888; font-size: .92rem; padding: 4px 2px; }
+    ol { padding-left: 22px; } ol li { margin-bottom: 9px; line-height: 1.45; }
+    .chk { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-weight: 600; }
+    .chk input { width: 22px; height: 22px; accent-color: var(--verde); flex-shrink: 0; margin-top: 2px; }
+    #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(140%); background: #222; color: #fff; padding: 12px 18px; border-radius: 14px; font-size: .92rem; max-width: 90vw; text-align: center; transition: transform .3s, opacity .3s; z-index: 50; opacity: 0; visibility: hidden; }
+    #toast.ver { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+    .modal-fondo { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 40; }
+    .modal { background: #fff; border-radius: 18px; padding: 20px; max-width: 420px; width: 100%; max-height: 85vh; overflow-y: auto; }
+    .modal h3 { margin-bottom: 8px; }
+    .nuevo-viaje { animation: brillo 1.2s ease 3; }
+    @keyframes brillo { 50% { box-shadow: 0 0 0 4px rgba(46,125,50,.45); } }
+    .gps { font-size: .8rem; color: var(--azul); margin-top: 8px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"><p class="centro gris" style="margin-top:60px;">Cargando…</p></div>
+  <div id="toast"></div>
+
+  <script>
+    const VERSION_TERMINOS = 1;
+    const TERMINOS = [
+      'Trato a cada cliente con respeto y amabilidad, y uso un lenguaje adecuado.',
+      'Entrego el pedido completo, cerrado y en buen estado. No abro ni consumo productos.',
+      'Cobro solo el monto indicado en la app. En pedidos contra entrega cobro únicamente el envío.',
+      'Cualquier robo, faltante de dinero o de producto será denunciado ante las autoridades y causará la baja inmediata.',
+      'Respeto las leyes de tránsito y uso casco. Mi moto, licencia y documentos están en regla y son mi responsabilidad.',
+      'Mientras llevo un pedido, la app comparte mi ubicación con Café Torrons y con el cliente. Al terminar el viaje deja de compartirla.',
+      'Trabajo de forma independiente: elijo cuándo conectarme y qué viajes acepto.',
+      'Gano el 100% del envío de cada viaje. Los pagados con tarjeta se liquidan cada semana.',
+      'Café Torrons puede desactivar mi cuenta si no cumplo estas condiciones.'
+    ];
+    const TORRONS_MAPA = 'https://www.google.com/maps/dir/?api=1&destination=14.6495488,-90.5178091';
+
+    firebase.initializeApp({
+      apiKey: "AIzaSyB5NHQqpKBUCiJH3GHfkLEmTd0Q69PPKK8",
+      authDomain: "cafe-torrons.firebaseapp.com",
+      databaseURL: "https://cafe-torrons-default-rtdb.firebaseio.com",
+      projectId: "cafe-torrons",
+      appId: "1:157355471209:web:6f25f061685317b3034df8"
+    });
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // ---------------- estado
+    let uid = null, nombre = '', enLinea = false;
+    let perfilRef = null, entregasQ = null, privadoRef = null, privadoKey = null, privado = null;
+    let ultimas = {}, vistos = null, enPrincipal = false;
+    let gpsWatch = null, gpsKey = null, gpsUltimo = 0, wakeLock = null, audioCtx = null;
+
+    // ---------------- utilidades
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+    const q = n => 'Q' + num(n).toFixed(2);
+    let toastT = null;
+    function aviso(t) { const e = $('toast'); e.textContent = t; e.classList.add('ver'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('ver'), 4200); }
+    function pantalla(html) { $('app').innerHTML = html; window.scrollTo(0, 0); }
+    function modal(titulo, html, botones) {
+      const f = document.createElement('div'); f.className = 'modal-fondo';
+      f.innerHTML = `<div class="modal"><h3>${titulo}</h3><div>${html}</div><div id="m-btns"></div></div>`;
+      const cont = f.querySelector('#m-btns');
+      botones.forEach(([t, cls, fn]) => { const b = document.createElement('button'); b.className = 'btn ' + (cls || ''); b.textContent = t; b.onclick = () => { f.remove(); fn && fn(); }; cont.appendChild(b); });
+      document.body.appendChild(f);
+    }
+    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const instalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    // ---------------- service worker (avisos)
+    let swReg = null;
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw-motoristas.js').then(r => swReg = r).catch(() => {});
+
+    // ---------------- login
+    function pantallaLogin() {
+      enPrincipal = false;
+      pantalla(`
+        <h1>🛵 Torrons Motoristas</h1>
+        <p class="centro gris">Entra con el correo y la contraseña que te dio Café Torrons.</p>
+        ${bannerInstalar()}
+        <div class="card" style="margin-top:14px;">
+          <form onsubmit="entrar(event)">
+            <input id="correo" type="email" autocomplete="username" inputmode="email" placeholder="Correo">
+            <input id="clave" type="password" autocomplete="current-password" placeholder="Contraseña">
+            <button class="btn" id="btn-entrar">Entrar</button>
+          </form>
+          <div class="centro"><button class="link" onclick="olvide()">¿Olvidaste tu contraseña?</button></div>
+        </div>`);
+    }
+    function entrar(e) {
+      e.preventDefault();
+      const c = $('correo').value.trim().toLowerCase(), p = $('clave').value;
+      if (!c || !p) return aviso('Escribe tu correo y contraseña');
+      const b = $('btn-entrar'); b.disabled = true; b.textContent = 'Entrando…';
+      auth.signInWithEmailAndPassword(c, p).catch(() => { aviso('Correo o contraseña incorrectos'); b.disabled = false; b.textContent = 'Entrar'; });
+    }
+    function olvide() {
+      const c = ($('correo') && $('correo').value.trim().toLowerCase()) || '';
+      if (!c) return aviso('Escribe tu correo arriba y vuelve a tocar "¿Olvidaste tu contraseña?"');
+      auth.sendPasswordResetEmail(c).then(() => aviso('📧 Te enviamos un correo para cambiar tu contraseña. Revisa también "No deseado".'))
+        .catch(() => aviso('No se pudo enviar. Revisa que el correo esté bien escrito.'));
+    }
+    function bannerInstalar() {
+      if (instalada) return '';
+      if (esIOS) return `<div class="instalar">📲 <b>Instálala en tu iPhone:</b> en Safari toca <b>Compartir</b> <span style="font-size:1.1em">⬆️</span> y luego <b>"Agregar a inicio"</b>. Así queda como app con su ícono.</div>`;
+      return `<div class="instalar">📲 <b>Tip:</b> en el menú del navegador toca <b>"Agregar a pantalla de inicio"</b> para tenerla como app.</div>`;
+    }
+
+    // ---------------- perfil
+    auth.onAuthStateChanged(u => {
+      quitarEscuchas();
+      if (!u) { uid = null; pantallaLogin(); return; }
+      uid = u.uid;
+      perfilRef = db.ref('motoristas/' + uid);
+      perfilRef.on('value', s => {
+        if (!s.exists()) return mensajeYSalir('Tu usuario no está registrado como motorista de Café Torrons.');
+        const v = s.val();
+        nombre = v.nombre || 'Motorista';
+        enLinea = v.enLinea === true;
+        const version = num(v.terminos && v.terminos.version);
+        if (v.activo !== true) { if (enLinea) ponerEnLinea(false); return mensajeYSalir('Tu cuenta está desactivada. Comunícate con Café Torrons.'); }
+        if (version < VERSION_TERMINOS) return pantallaTerminos();
+        if (!enPrincipal) pantallaPrincipal(); else pintarSwitch();
+      }, e => mensajeYSalir('No se pudo leer tu perfil. ' + (e && e.message || '')));
+    });
+    function quitarEscuchas() {
+      if (perfilRef) perfilRef.off(); if (entregasQ) entregasQ.off(); if (privadoRef) privadoRef.off();
+      perfilRef = entregasQ = privadoRef = null; privadoKey = null; privado = null; enPrincipal = false; vistos = null;
+      pararGps();
+    }
+    function mensajeYSalir(msg) {
+      if (entregasQ) { entregasQ.off(); entregasQ = null; } enPrincipal = false;
+      pantalla(`<div class="card" style="margin-top:40px;"><p class="t1">${esc(msg)}</p><button class="btn rojo" onclick="salir()">Salir</button></div>`);
+    }
+    function pantallaTerminos() {
+      enPrincipal = false;
+      pantalla(`
+        <h2 style="color:var(--naranja);font-size:1.35rem;margin-top:20px;">Condiciones para motoristas</h2>
+        <p class="gris">Léelas con calma. Para usar la app debes aceptarlas.</p>
+        <div class="card" style="margin-top:12px;"><ol>${TERMINOS.map(t => '<li>' + esc(t) + '</li>').join('')}</ol></div>
+        <label class="chk"><input type="checkbox" id="acepto"> Leí y acepto las condiciones de Café Torrons</label>
+        <button class="btn verde" onclick="aceptarTerminos()">Aceptar y continuar</button>
+        <button class="btn gris" onclick="salir()">No acepto · Salir</button>`);
+    }
+    function aceptarTerminos() {
+      if (!$('acepto').checked) return aviso('Marca la casilla para aceptar');
+      db.ref('motoristas/' + uid + '/terminos').set({ version: VERSION_TERMINOS, ts: firebase.database.ServerValue.TIMESTAMP })
+        .catch(e => aviso('No se pudo guardar: ' + e.message));
+    }
+
+    // ---------------- principal
+    function pantallaPrincipal() {
+      enPrincipal = true;
+      pantalla(`
+        ${bannerInstalar()}
+        <div class="cab"><div class="hola">Hola, ${esc(nombre.split(' ')[0])} 👋</div>
+          <div class="switch" id="sw" onclick="ponerEnLinea(!enLinea)"><span id="sw-txt">En línea</span><span class="pista"></span></div></div>
+        <div class="estado" id="estado"></div>
+        <h2>🛵 Mi viaje actual</h2><div id="actual"><p class="vacio">Cargando…</p></div>
+        <h2>📦 Viajes disponibles</h2><div id="disponibles"></div>
+        <h2>💰 Esta semana</h2><div id="semana"></div>
+        <button class="btn gris" style="margin-top:22px;" onclick="verCondiciones()">Ver condiciones</button>
+        <button class="btn oscuro" onclick="salir()">Cerrar sesión</button>`);
+      pintarSwitch();
+      const desde = Date.now() - 8 * 24 * 3600 * 1000;
+      entregasQ = db.ref('entregas').orderByChild('creado').startAt(desde);
+      entregasQ.on('value', s => { ultimas = s.val() || {}; pintar(); }, e => aviso('Sin acceso a viajes: ' + e.message));
+    }
+    function pintarSwitch() {
+      const sw = $('sw'); if (!sw) return;
+      sw.classList.toggle('on', enLinea);
+      $('estado').className = 'estado ' + (enLinea ? 'on' : 'off');
+      $('estado').innerHTML = enLinea
+        ? '🟢 Estás en línea. <b>Deja esta app abierta</b> para escuchar el aviso de viajes nuevos 🔔.'
+        : '⚪ Desconectado. Toca <b>En línea</b> para empezar a recibir viajes.';
+      mantenerPantalla(enLinea || !!gpsKey);
+    }
+    function ponerEnLinea(on) {
+      enLinea = on;
+      if (uid) db.ref('motoristas/' + uid + '/enLinea').set(on).catch(() => {});
+      if (on) {
+        try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+        if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+        aviso('🟢 ¡Listo! Te avisamos cuando haya un viaje.');
+      }
+      pintarSwitch();
+    }
+    function verCondiciones() { modal('Condiciones', '<ol>' + TERMINOS.map(t => '<li>' + esc(t) + '</li>').join('') + '</ol>', [['Cerrar', 'gris']]); }
+
+    function pintar() {
+      if (!enPrincipal || !$('actual')) return;
+      const todas = Object.entries(ultimas).map(([k, v]) => Object.assign({ key: k }, v));
+      const actual = todas.find(e => e.motorista === uid && (e.estado === 'asignado' || e.estado === 'recogido'));
+      const disp = todas.filter(e => e.estado === 'disponible').sort((a, b) => num(a.creado) - num(b.creado));
+
+      // avisar viajes nuevos
+      const nuevos = vistos ? disp.filter(e => !vistos.has(e.key)) : [];
+      vistos = new Set(disp.map(e => e.key));
+      if (nuevos.length && enLinea && !actual) avisarViaje(nuevos[0]);
+
+      // actual
+      if (!actual) { $('actual').innerHTML = '<p class="vacio">No tienes un viaje en curso.</p>'; escucharPrivado(null); pararGps(); }
+      else { escucharPrivado(actual.key); $('actual').innerHTML = tarjetaActual(actual); if (actual.estado === 'recogido') iniciarGps(actual.key); else pararGps(); }
+
+      // disponibles
+      $('disponibles').innerHTML = disp.length ? disp.map(e => {
+        const pago = num(e.pago), cobrar = num(e.cobrar), km = num(e.km);
+        return `<div class="card ${nuevos.some(n => n.key === e.key) ? 'nuevo-viaje' : ''}">
+          <div class="t1">📍 ${esc(e.zona || 'Zona')}${e.colonia ? ' · ' + esc(e.colonia) : ''}</div>
+          <div class="ganas">${km > 0 ? km + ' km desde Torrons · ' : ''}${pago > 0 ? 'Ganas ' + q(pago) : 'Cobras ' + q(cobrar) + ' en efectivo (es tuyo)'}</div>
+          <div class="gris" style="margin-top:4px;">Pedido #${esc(e.codigo || '')} · recoger en 1a av. A 1-00, zona 2</div>
+          ${actual ? '<button class="btn claro" disabled>Termina tu viaje actual primero</button>' : `<button class="btn verde" onclick="aceptar('${e.key}', this)">✅ Aceptar viaje</button>`}
+        </div>`;
+      }).join('') : '<p class="vacio">No hay viajes por ahora. Te avisamos cuando haya uno.</p>';
+
+      // semana
+      const ini = inicioSemana();
+      const mias = todas.filter(e => e.motorista === uid && e.estado === 'entregado' && num(e.entregadoTs) >= ini);
+      const porCobrar = mias.reduce((s, e) => s + num(e.pago), 0), efectivo = mias.reduce((s, e) => s + num(e.cobrar), 0);
+      $('semana').innerHTML = `<div class="card"><div class="t1">${mias.length} viaje${mias.length === 1 ? '' : 's'} entregado${mias.length === 1 ? '' : 's'}</div>
+        <div class="ganas">Torrons te paga: ${q(porCobrar)}</div>
+        ${efectivo > 0 ? `<div class="linea">Cobraste en efectivo: ${q(efectivo)}</div>` : ''}
+        <div class="linea"><b>Total ganado: ${q(porCobrar + efectivo)}</b></div></div>`;
+    }
+
+    function tarjetaActual(e) {
+      const p = privadoKey === e.key ? privado : null;
+      const cobrar = num(e.cobrar), pago = num(e.pago);
+      let h = `<div class="card"><div class="t1 naranja">${e.estado === 'asignado' ? '1️⃣ Ve a Torrons a recoger el pedido #' : '2️⃣ Entrega el pedido #'}${esc(e.codigo || '')}</div>`;
+      if (p) {
+        h += `<div class="linea"><b>👤 ${esc(p.cliente)}</b></div><div class="linea">📍 ${esc(p.direccion)}</div>`;
+        if (num(p.productos) > 0) h += `<div class="gris" style="margin-top:4px;">🛍️ ${num(p.productos)} producto(s) · revisa que vaya todo cerrado</div>`;
+      } else h += '<p class="vacio">Cargando datos del cliente…</p>';
+      h += cobrar > 0 ? `<div class="cobra">💵 COBRA ${q(cobrar)} DE ENVÍO EN EFECTIVO (es tuyo). Los productos ya están pagados.</div>`
+                      : `<div class="ganas" style="margin-top:8px;">💳 Todo pagado con tarjeta. No cobres nada. Ganas ${q(pago)}.</div>`;
+      if (e.estado === 'asignado') {
+        h += `<a class="btn azul" href="${TORRONS_MAPA}" target="_blank" rel="noopener">🗺️ Cómo llegar a Torrons</a>
+              <button class="btn verde" onclick="recogido('${e.key}', this)">📦 Ya lo recogí · salir a entregar</button>`;
+      } else {
+        if (p && p.mapa) h += `<a class="btn azul" href="${esc(p.mapa)}" target="_blank" rel="noopener">🗺️ Navegar a la casa del cliente</a>`;
+        if (p && p.wa) h += `<a class="btn wa" href="${esc(p.wa)}" target="_blank" rel="noopener">💬 WhatsApp al cliente</a>`;
+        if (p && p.tel) h += `<a class="btn oscuro" href="tel:${esc(String(p.tel).replace(/\s/g, ''))}">📞 Llamar al cliente</a>`;
+        h += `<button class="btn rojo" onclick="confirmarEntrega('${e.key}', ${cobrar})">✅ Entregado</button>`;
+        h += `<div class="gps" id="gps-txt">${gpsKey === e.key ? '📡 Compartiendo tu ubicación con el cliente. Deja la app abierta durante el viaje.' : ''}</div>`;
+      }
+      return h + '</div>';
+    }
+    function escucharPrivado(key) {
+      if (key === privadoKey) return;
+      if (privadoRef) privadoRef.off();
+      privadoKey = key; privado = null; privadoRef = null;
+      if (!key) return;
+      privadoRef = db.ref('entregasPrivado/' + key);
+      privadoRef.on('value', s => { privado = s.val(); pintar(); }, () => {});
+    }
+
+    // ---------------- acciones
+    function aceptar(key, b) {
+      if (b) { b.disabled = true; b.textContent = 'Aceptando…'; }
+      db.ref('entregas/' + key).transaction(d => {
+        if (d === null) return d;
+        if (d.estado !== 'disponible') return;
+        d.estado = 'asignado'; d.motorista = uid; d.motoristaNombre = nombre; d.aceptadoTs = Date.now();
+        return d;
+      }).then(r => aviso(r.committed && r.snapshot.val() && r.snapshot.val().motorista === uid ? '✅ ¡El viaje es tuyo! Ve a Torrons a recogerlo.' : 'Otro motorista lo aceptó primero.'))
+        .catch(e => { aviso('No se pudo aceptar: ' + e.message); pintar(); });
+    }
+    function pedirUbicacion() {
+      return new Promise((ok, ko) => {
+        if (!navigator.geolocation) return ko(new Error('sin gps'));
+        navigator.geolocation.getCurrentPosition(ok, ko, { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
+      });
+    }
+    function recogido(key, b) {
+      modal('Ubicación durante el viaje', '<p>Para que el cliente vea por dónde vas, la app comparte tu ubicación <b>solo mientras llevas este pedido</b>. Cuando el teléfono pregunte, toca <b>Permitir</b>.</p>', [
+        ['Entendido', 'verde', async () => {
+          try { await pedirUbicacion(); }
+          catch (e) {
+            return modal('Activa la ubicación', esIOS
+              ? '<p>Sin ubicación no se puede iniciar el viaje.<br><br>En tu iPhone ve a <b>Ajustes → Privacidad y seguridad → Localización</b>, actívala y en <b>Safari</b> elige <b>"Al usar la app"</b>. Luego vuelve y toca otra vez "Ya lo recogí".</p>'
+              : '<p>Sin ubicación no se puede iniciar el viaje. Permite la ubicación para este sitio en tu navegador y vuelve a intentarlo.</p>', [['Entendido', 'gris']]);
+          }
+          db.ref('entregas/' + key).update({ estado: 'recogido', recogidoTs: Date.now() }).then(() => {
+            db.ref('seguimiento/' + key).update({ etapa: 'en_camino', motorista: nombre.split(' ')[0] }).catch(() => {});
+            iniciarGps(key);
+            aviso('🛵 ¡Buen viaje! El cliente ya ve que vas en camino.');
+          }).catch(e => aviso('No se pudo actualizar: ' + e.message));
+        }]
+      ]);
+    }
+    function confirmarEntrega(key, cobrar) {
+      modal('¿Entregaste el pedido?', `<p>${cobrar > 0 ? 'Confirma que cobraste <b>' + q(cobrar) + '</b> del envío.' : 'Confirma que el cliente recibió su pedido.'}</p>`, [
+        ['Sí, entregado', 'rojo', () => entregado(key)], ['Todavía no', 'gris']
+      ]);
+    }
+    function entregado(key) {
+      db.ref('entregas/' + key).update({ estado: 'entregado', entregadoTs: Date.now() }).then(() => {
+        db.ref('seguimiento/' + key + '/etapa').set('entregado').catch(() => {});
+        db.ref('ubicaciones/' + key).remove().catch(() => {});
+        pararGps();
+        aviso('🎉 ¡Gracias! Viaje entregado.');
+      }).catch(e => aviso('No se pudo actualizar: ' + e.message));
+    }
+    function salir() {
+      if (uid && enLinea) db.ref('motoristas/' + uid + '/enLinea').set(false).catch(() => {});
+      enLinea = false; quitarEscuchas(); mantenerPantalla(false);
+      auth.signOut();
+    }
+
+    // ---------------- GPS durante el viaje
+    function iniciarGps(key) {
+      if (gpsKey === key && gpsWatch != null) return;
+      pararGps();
+      if (!navigator.geolocation) return;
+      gpsKey = key;
+      gpsWatch = navigator.geolocation.watchPosition(pos => {
+        const ahora = Date.now(); if (ahora - gpsUltimo < 5000) return; gpsUltimo = ahora;
+        db.ref('ubicaciones/' + key).set({
+          lat: pos.coords.latitude, lng: pos.coords.longitude, ts: firebase.database.ServerValue.TIMESTAMP,
+          nombre, vel: Math.max(0, Math.round((pos.coords.speed || 0) * 3.6))
+        }).catch(() => {});
+      }, () => { const t = $('gps-txt'); if (t) t.textContent = '⚠️ No se pudo leer tu ubicación. Revisa que esté activada.'; },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+      mantenerPantalla(true);
+      const t = $('gps-txt'); if (t) t.textContent = '📡 Compartiendo tu ubicación con el cliente. Deja la app abierta durante el viaje.';
+    }
+    function pararGps() {
+      if (gpsWatch != null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatch);
+      gpsWatch = null; gpsKey = null;
+    }
+    // Mantiene la pantalla encendida mientras está en línea o en viaje (iPhone con iOS 16.4+)
+    async function mantenerPantalla(on) {
+      try {
+        if (on && !wakeLock && 'wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); }
+        if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+      } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (enLinea || gpsKey)) mantenerPantalla(true); });
+
+    // ---------------- aviso de viaje nuevo
+    function avisarViaje(e) {
+      const txt = `${e.zona || 'Nuevo viaje'} · ${num(e.pago) > 0 ? 'Ganas ' + q(e.pago) : 'Cobras ' + q(e.cobrar)}`;
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = audioCtx.currentTime;
+        [0, .22, .44, 1.0, 1.22, 1.44].forEach((d, i) => {
+          const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+          o.type = 'square'; o.frequency.value = i % 3 === 2 ? 1320 : 990;
+          g.gain.setValueAtTime(.0001, t0 + d); g.gain.exponentialRampToValueAtTime(.35, t0 + d + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + d + .18);
+          o.connect(g).connect(audioCtx.destination); o.start(t0 + d); o.stop(t0 + d + .2);
+        });
+      } catch (x) {}
+      try { navigator.vibrate && navigator.vibrate([400, 150, 400, 150, 400]); } catch (x) {}
+      try {
+        if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+          const opt = { body: txt + ' · Toca para aceptar', icon: 'imagenes/moto-icon-192.png', tag: 'viaje', renotify: true };
+          if (swReg) swReg.showNotification('🛵 ¡Viaje nuevo en Torrons!', opt); else new Notification('🛵 ¡Viaje nuevo en Torrons!', opt);
+        }
+      } catch (x) {}
+      aviso('🔔 ¡Viaje nuevo! ' + txt);
+    }
+
+    function inicioSemana() {
+      const c = new Date(); c.setHours(0, 0, 0, 0);
+      const dia = (c.getDay() + 6) % 7; // lunes = 0
+      c.setDate(c.getDate() - dia);
+      return c.getTime();
+    }
+  </script>
+</body>
+</html>
