@@ -83,15 +83,16 @@
     ];
     const TORRONS_MAPA = 'https://www.google.com/maps/dir/?api=1&destination=14.6495488,-90.5178091';
 
-    firebase.initializeApp({
+    // App con nombre propio: su sesión no se mezcla con la del administrador en el mismo sitio
+    const APP = firebase.initializeApp({
       apiKey: "AIzaSyB5NHQqpKBUCiJH3GHfkLEmTd0Q69PPKK8",
       authDomain: "cafe-torrons.firebaseapp.com",
       databaseURL: "https://cafe-torrons-default-rtdb.firebaseio.com",
       projectId: "cafe-torrons",
       appId: "1:157355471209:web:6f25f061685317b3034df8"
-    });
-    const auth = firebase.auth();
-    const db = firebase.database();
+    }, 'motoristas');
+    const auth = APP.auth();
+    const db = APP.database();
 
     // ---------------- estado
     let uid = null, nombre = '', enLinea = false;
