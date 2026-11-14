@@ -1179,6 +1179,41 @@
     .delivery-option-text span { color: var(--muted); font-size: 0.8rem; }
     .delivery-option-price { margin-left: auto; font-weight: 700; color: var(--primary); font-size: 0.88rem; white-space: nowrap; }
 
+
+    /* ===== Carrito ordenado (barra de entrega arriba) ===== */
+    .cart-header { padding: 14px 18px; }
+    .delivery-bar { padding: 10px 14px 8px; border-bottom: 1px solid var(--border); background: #fff; }
+    .delivery-seg { display: flex; background: #f1ece6; border-radius: 999px; padding: 4px; gap: 4px; }
+    .delivery-bar .delivery-option { flex: 1; margin: 0; padding: 0; border: none; background: transparent; border-radius: 999px; display: block; }
+    .delivery-bar .delivery-option input { position: absolute; opacity: 0; pointer-events: none; }
+    .delivery-bar .delivery-option span { display: block; text-align: center; padding: 9px 4px; border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--secondary); white-space: nowrap; transition: background .2s, color .2s; }
+    .delivery-bar .delivery-option.selected { background: transparent; }
+    .delivery-bar .delivery-option.selected span { background: var(--primary); color: #fff; box-shadow: 0 3px 8px rgba(196,30,58,.3); }
+    .delivery-hint { font-size: .76rem; color: var(--muted); text-align: center; margin-top: 6px; line-height: 1.35; }
+    .delivery-hint a { color: var(--primary); font-weight: 700; }
+    .cupon-box { margin: 8px 14px 0; padding: 6px; border-width: 1.5px; border-radius: 12px; }
+    .cupon-box input { padding: 8px 10px; font-size: .85rem; letter-spacing: .5px; }
+    .cupon-box input::placeholder { letter-spacing: 0; text-transform: none; font-weight: 600; color: #a1887f; }
+    .cupon-box button { padding: 8px 12px; font-size: .85rem; }
+    .cupon-box .cb-err { margin: 4px 4px 0; }
+    .cupon-on { gap: 8px; }
+    .cupon-on .cb-pct { width: 42px; height: 42px; font-size: .82rem; }
+    .cupon-on .cb-txt { font-size: .78rem; }
+    .cart-items { padding: 4px 18px 8px; min-height: 0; }
+    .cart-item { padding: 10px 0; gap: 0; }
+    .ci-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .ci-top .cart-item-name { margin: 0; font-size: .9rem; line-height: 1.3; }
+    .ci-top .cart-item-price { white-space: nowrap; font-size: .9rem; }
+    .ci-bot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+    .ci-bot .cart-item-qty { margin: 0; }
+    .ci-bot .remove-item { margin: 0; font-size: .78rem; }
+    .cart-item .cart-note { margin-top: 6px; padding: 5px 9px; font-size: .78rem; }
+    .cart-footer { padding: 10px 18px 12px; max-height: none; overflow: visible; }
+    .cart-breakdown { margin-bottom: 8px; }
+    .cart-row { font-size: .84rem; margin-bottom: 3px; }
+    .cart-total { font-size: 1.08rem; margin-top: 4px; padding-top: 6px; }
+    .cart-footer .checkout-btn { padding: 13px; font-size: 1rem; }
+    .cart-footer #checkout-btn { position: static; box-shadow: none; }
     .pay-step { display: block; text-align: center; text-decoration: none; margin-top: 12px; }
     .pay-step:not(.secondary) { background: var(--primary); }
     .closed-banner { background: #3e221a; color: #fff; text-align: center; padding: 10px 14px; font-weight: 700; font-size: 0.92rem; }
@@ -1398,33 +1433,19 @@
       <h2>🛒 Tu Pedido</h2>
       <button class="close-cart" onclick="toggleCart()">✕</button>
     </div>
+    <div class="delivery-bar" id="delivery-options" style="display:none;">
+      <div class="delivery-seg" role="radiogroup" aria-label="Forma de entrega">
+        <label class="delivery-option" data-method="delivery"><input type="radio" name="delivery-method" value="delivery" onchange="setDeliveryMethod('delivery')"><span>🚚 Delivery</span></label>
+        <label class="delivery-option" data-method="pickup"><input type="radio" name="delivery-method" value="pickup" onchange="setDeliveryMethod('pickup')"><span>🏪 Retiro</span></label>
+        <label class="delivery-option" data-method="cash"><input type="radio" name="delivery-method" value="cash" onchange="setDeliveryMethod('cash')"><span>🛵 Contra entrega</span></label>
+      </div>
+      <div class="delivery-hint" id="delivery-hint"></div>
+    </div>
     <div class="cupon-box" id="cupon-box" style="display:none;"></div>
     <div class="cart-items" id="cart-items">
       <!-- Cart items -->
     </div>
     <div class="cart-footer">
-      <div class="delivery-options" id="delivery-options">
-        <div class="delivery-options-title">¿Cómo quieres recibir tu pedido?</div>
-        <label class="delivery-option" data-method="delivery">
-          <input type="radio" name="delivery-method" value="delivery" onchange="setDeliveryMethod('delivery')">
-          <div class="delivery-option-text"><strong>🚚 Delivery</strong><span>Pago con tarjeta (link de Paggo)</span></div>
-          <div class="delivery-option-price">Según distancia</div>
-        </label>
-        <label class="delivery-option" data-method="pickup">
-          <input type="radio" name="delivery-method" value="pickup" onchange="setDeliveryMethod('pickup')">
-          <div class="delivery-option-text"><strong>🏪 Retiro en local</strong><span>1a avenida A 1-00, zona 2, El Sauce</span></div>
-          <div class="delivery-option-price">Gratis</div>
-        </label>
-        <label class="delivery-option" data-method="cash">
-          <input type="radio" name="delivery-method" value="cash" onchange="setDeliveryMethod('cash')">
-          <div class="delivery-option-text"><strong>🛵 Envío contra entrega</strong><span>Productos con tarjeta · el envío lo pagas en efectivo al motorista</span></div>
-          <div class="delivery-option-price">Por coordinar</div>
-        </label>
-        <div class="pickup-box" id="cart-pickup-box" style="display:none;">
-          📍 <strong>Recoge en:</strong> 1a avenida A 1-00, zona 2, El Sauce, Guatemala<br>
-          <a href="https://www.google.com/maps/search/?api=1&query=Torrons+Guatemala" target="_blank" rel="noopener">Ver en Google Maps →</a>
-        </div>
-      </div>
       <div class="cart-breakdown" id="cart-breakdown">
         <div class="cart-row">
           <span>Subtotal</span>
@@ -1977,11 +1998,12 @@
         opt.classList.toggle('selected', isSel);
         opt.querySelector('input').checked = isSel;
       });
-      const box = document.getElementById('cart-pickup-box');
-      if (box) {
-        const show = deliveryMethod === 'pickup';
-        box.style.display = show ? 'block' : 'none';
-      }
+      const hint = document.getElementById('delivery-hint');
+      if (hint) hint.innerHTML = {
+        delivery: '💳 Pagas todo con tarjeta · envío según distancia',
+        pickup: '📍 1a av. A 1-00, zona 2, El Sauce · <strong>Gratis</strong> · <a href="https://www.google.com/maps/search/?api=1&query=Torrons+Guatemala" target="_blank" rel="noopener">Ver mapa</a>',
+        cash: '💳 Productos con tarjeta · 🛵 envío en efectivo al motorista'
+      }[deliveryMethod] || '👆 Elige cómo quieres recibir tu pedido';
     }
 
     // ========== COBERTURA DE ENVÍO (uso interno, no se muestra en la página) ==========
@@ -2144,8 +2166,7 @@
         document.getElementById('cart-cupon').textContent = `−Q ${getCartDescuento().toFixed(2)}`;
       } else {
         if (!document.getElementById('cupon-input')) {
-          box.innerHTML = `<div class="cb-title">🎟️ ¿Tienes un cupón de descuento?</div>
-            <div class="cb-row"><input id="cupon-input" maxlength="12" placeholder="TOR-XXXXXX" autocomplete="off" onkeydown="if(event.key==='Enter')aplicarCupon()"><button id="cupon-btn" onclick="aplicarCupon()">Aplicar</button></div>
+          box.innerHTML = `<div class="cb-row"><input id="cupon-input" maxlength="12" placeholder="🎟️ ¿Tienes cupón? TOR-XXXXXX" autocomplete="off" onkeydown="if(event.key==='Enter')aplicarCupon()"><button id="cupon-btn" onclick="aplicarCupon()">Aplicar</button></div>
             <div class="cb-err" id="cupon-err"></div>`;
         }
         row.style.display = 'none';
@@ -2474,11 +2495,9 @@
           return `
           <div class="cart-item ${item.isComboExtra ? 'cart-item-extra' : ''}">
             <div class="cart-item-info">
-              <div class="cart-item-name">${item.name}</div>
-              <div class="cart-item-price">Q ${(item.price * item.qty).toFixed(2)}</div>
-              ${qtyHtml}
-              ${item.isComboExtra ? '' : `<input class="cart-note" type="text" maxlength="50" placeholder="📝 Nota (opcional, máx. 50)" value="${String(item.mensaje || '').replace(/"/g, '&quot;')}" oninput="setNotaItem('${key}', this.value)">`}
-              <button class="remove-item" onclick="removeFromCart('${key}')">${removeLabel}</button>
+              <div class="ci-top"><div class="cart-item-name">${item.name}</div><div class="cart-item-price">Q ${(item.price * item.qty).toFixed(2)}</div></div>
+              <div class="ci-bot">${qtyHtml}<button class="remove-item" onclick="removeFromCart('${key}')">🗑️ ${removeLabel}</button></div>
+              ${item.isComboExtra ? '' : `<input class="cart-note" type="text" maxlength="50" placeholder="📝 Nota (opcional)" value="${String(item.mensaje || '').replace(/"/g, '&quot;')}" oninput="setNotaItem('${key}', this.value)">`}
             </div>
           </div>
         `}).join('');
