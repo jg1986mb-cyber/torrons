@@ -115,6 +115,12 @@
     .pay-badge.pendiente { background: #fff4e0; color: var(--warn); }
     .pay-badge.efectivo { background: #eef2f7; color: #44546a; }
     .pay-badge a { color: inherit; }
+    .envio-box { margin-top: 8px; padding: 9px 12px; border-radius: 12px; font-size: 0.9rem; line-height: 1.35; }
+    .envio-box.pagado { background: #e8f5e9; border: 2px solid #2e7d32; color: #1b5e20; }
+    .envio-box.cobrar { background: #fff3e0; border: 2px solid #ef6c00; color: #8a3c00; }
+    .envio-box b.big { font-size: 1.02rem; display: block; }
+    .envio-box .envio-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+    .envio-box .envio-btns a, .envio-box .envio-btns button { font: inherit; font-size: 0.8rem; font-weight: 700; padding: 6px 10px; border-radius: 9px; border: 0; cursor: pointer; text-decoration: none; background: #fff; color: #222; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
     .days { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
     .days label { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 7px 11px; border: 1.5px solid var(--border); border-radius: 999px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
     .days input { accent-color: var(--primary); }
@@ -555,6 +561,44 @@
       orders.filter(o => o.pago && o.pago.estado !== 'pagado' && o.estado !== 'cancelado' && (o.ts || 0) > limite)
         .slice(0, 10).forEach(o => verificarPago(o.key, true));
     }
+    // ---------- Envío: quién lo paga + datos para inDrive / Uber ----------
+    function envioBox(o) {
+      if (o.metodo === 'pickup') return '';
+      const c = o.cliente || {}; const env = envioDe(o); const km = Number(c.km) ? ' · ' + Number(c.km).toFixed(1) + ' km' : '';
+      const uber = c.lat ? `https://m.uber.com/ul/?action=setPickup&pickup[latitude]=14.6495488&pickup[longitude]=-90.5178091&pickup[nickname]=Cafe%20Torrons&dropoff[latitude]=${c.lat}&dropoff[longitude]=${c.lng}&dropoff[nickname]=${encodeURIComponent(c.nombre || 'Cliente')}` : '';
+      const btns = `<div class="envio-btns">
+          <button onclick="copiarViaje('${o.key}')">📋 Copiar datos para inDrive / Uber</button>
+          ${uber ? `<a href="${uber}" target="_blank" rel="noopener">🚗 Abrir en Uber</a>` : ''}
+          ${c.lat ? `<a href="https://www.google.com/maps/dir/?api=1&origin=14.6495488,-90.5178091&destination=${c.lat},${c.lng}" target="_blank" rel="noopener">🗺️ Ruta</a>` : ''}
+        </div>`;
+      if (o.metodo === 'cash') return `<div class="envio-box cobrar"><b class="big">💵 ENVÍO CONTRA ENTREGA</b>El motorista <b>cobra Q ${env.toFixed(2)} en efectivo</b> al cliente${km}. Los productos ya van pagados con tarjeta.${btns}</div>`;
+      return `<div class="envio-box pagado"><b class="big">💳 ENVÍO PAGADO CON TARJETA · Q ${env.toFixed(2)}${km}</b>El cliente <b>no paga nada</b> al recibir. El viaje lo paga Torrons.${btns}</div>`;
+    }
+    function textoViaje(o) {
+      const c = o.cliente || {}; const env = envioDe(o);
+      const dir = [c.calle, c.colonia, c.zona].filter(Boolean).join(', ');
+      const destino = c.lat ? `https://maps.google.com/?q=${c.lat},${c.lng}` : (c.maps || '');
+      return [`🛵 Pedido Café Torrons #${o.key.slice(-5).toUpperCase()}`,
+        `Recoger: Café Torrons · https://maps.google.com/?q=14.6495488,-90.5178091`,
+        `Entregar a: ${c.nombre || 'Cliente'}${c.tel ? ' · Tel ' + c.tel : ''}`,
+        dir ? `Dirección: ${dir}` : '', destino ? `Ubicación: ${destino}` : '',
+        o.metodo === 'cash' ? `💵 COBRAR AL CLIENTE: Q ${env.toFixed(2)} en efectivo (solo el envío)` : `✅ Todo PAGADO. No cobrar nada al cliente.`
+      ].filter(Boolean).join('\n');
+    }
+    function copiarViaje(key) {
+      const o = orders.find(x => x.key === key); if (!o) return;
+      const t = textoViaje(o);
+      const ok = () => toast('📋 Datos copiados · pégalos en inDrive, Uber o WhatsApp');
+      if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(t).then(ok).catch(() => copiarRespaldo(t, ok)); }
+      else copiarRespaldo(t, ok);
+    }
+    function copiarRespaldo(t, ok) {
+      const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { prompt('Copia estos datos:', t); }
+      ta.remove();
+    }
+
     function payBadge(o) {
       if (o.pago) {
         if (o.pago.estado === 'pagado') {
@@ -969,6 +1013,7 @@
               <div class="c-meta">${esc(fmtFecha(o.ts))} · ${esc(METODOS[o.metodo] || o.metodo || '')}${c.tel ? ` · <a href="${waCliente(o)}" target="_blank" rel="noopener" class="wa-link" title="Escribir por WhatsApp">💬 ${esc(c.tel)}</a>` : ''}</div>
               ${dir ? `<div class="c-addr">📍 ${esc(dir)}${c.maps ? ` · <a href="${esc(c.maps)}" target="_blank" rel="noopener">Mapa</a>` : ''}</div>` : ''}
               ${payBadge(o)} <span class="etapa ${et}">${ET_TXT[et] || et}</span> ${entregaBadge(o)}
+              ${envioBox(o)}
             </div>
             <div class="c-meta">#${esc(o.key.slice(-5).toUpperCase())}</div>
           </div>
@@ -979,6 +1024,7 @@
                  ${it.nota ? `<div class="c-sub"><span>↳ ${esc(it.nota)}</span></div>` : ''}
                  ${(it.detalle || []).map(d => `<div class="c-sub"><span>• ${esc(d)}</span></div>`).join('')}`
             ).join('')}
+            ${o.metodo !== 'pickup' ? `<div class="c-item" style="color:#555"><span>🛵 Envío${Number(c.km) ? ' (' + Number(c.km).toFixed(1) + ' km)' : ''}${o.metodo === 'cash' ? ' · efectivo' : ' · tarjeta'}</span><span>${q(envioDe(o))}</span></div>` : ''}
           </div>
           ${cx && cx.estado === 'solicitada' && o.estado !== 'cancelado' ? `<div class="cx-box">⚠️ <strong>El cliente pidió cancelar.</strong>
               <button class="btn small" onclick="aceptarCancelacion('${o.key}')">Aceptar cancelación</button>
@@ -1044,6 +1090,7 @@
         ${dir ? `<div class="c sm">${esc(ne(dir))}</div>` : ''}
         ${pagado ? '<div class="c pagado">PAGADO</div>' : (o.pago ? '<div class="c b">PAGO PENDIENTE</div>' : '<div class="c b">COBRAR EN EFECTIVO</div>')}
         ${o.metodo === 'cash' ? `<div class="c b">COBRAR ENVIO EN EFECTIVO${(o.cliente || {}).envio ? ': Q ' + Number(o.cliente.envio).toFixed(2) : ''}</div>` : ''}
+        ${o.metodo === 'delivery' ? `<div class="c b">ENVIO PAGADO CON TARJETA: Q ${envioDe(o).toFixed(2)}</div><div class="c sm">NO COBRAR NADA AL CLIENTE</div>` : ''}
         <div class="hr"></div>
         ${items.map(it => it.extra
           ? `<div class="it sub">${Number(it.cant) || 1} x ${esc(ne(it.nombre).replace(/ \(combo\)/, ''))}</div>`
