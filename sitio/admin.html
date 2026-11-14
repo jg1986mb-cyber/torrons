@@ -1614,10 +1614,11 @@
         `Por ${motivo} te llevas:${NL}${NL}` +
         `🎁 *${c.pct}% DE DESCUENTO* 🎁${NL}` +
         `en tu próxima compra${NL}${NL}` +
-        `🎟️ Tu código: *${code}*${NL}` +
+        `🎟️ Tu código: \`\`\`${code}\`\`\`${NL}` +
         `📅 Emitido: ${fechaCorta(c.emitido)}${NL}` +
         `⏳ Vence: ${fechaCorta(c.vence)} (válido ${c.dias || 30} días)${NL}${NL}` +
-        `👉 Pide en *torronsguatemala.com* y escribe tu código arriba en el carrito 🛒${NL}` +
+        `👉 *Toca aquí y tu descuento se aplica solo:*${NL}https://torronsguatemala.com/?cupon=${code}${NL}${NL}` +
+        `O copia este mensaje y pégalo arriba en el carrito 🛒${NL}` +
         `_Válido una sola vez${i.soloTel ? ', con este número de teléfono' : ''}. No acumulable con otras ofertas ni promociones. No incluye el envío._${NL}${NL}` +
         `¡Te esperamos! ❤️${NL}*Café Torrons · Lo mejor de dos mundos*`;
     }
@@ -1625,6 +1626,11 @@
       let n = String((cuponesInfo[code] || {}).tel || '').replace(/\D/g, '');
       if (n.length === 8) n = '502' + n;
       return `https://wa.me/${n}?text=${encodeURIComponent(cupMensaje(code))}`;
+    }
+    function cupWaSoloCodigo(code) {
+      let n = String((cuponesInfo[code] || {}).tel || '').replace(/\D/g, '');
+      if (n.length === 8) n = '502' + n;
+      return `https://wa.me/${n}?text=${encodeURIComponent(code)}`;
     }
     function cupCopiar(t, msg) {
       const ok = () => toast(msg);
@@ -1646,6 +1652,7 @@
         ${i.tel && est === 'vigente' ? `<a class="btn wa" href="${cupWaLink(code)}" target="_blank" rel="noopener">📲 Enviar por WhatsApp</a>` : ''}
         <button class="btn small ghost" onclick="cupCopiarMsg('${code}')">📋 Copiar mensaje</button>
         <button class="btn small ghost" onclick="cupCopiarCodigo('${code}')">📋 Copiar código</button>
+        ${i.tel && est === 'vigente' ? `<a class="btn small ghost" href="${cupWaSoloCodigo(code)}" target="_blank" rel="noopener">📲 Mandar solo el código</a>` : ''}
       </div>`;
     }
 

@@ -2110,12 +2110,36 @@
       if (!cupon || !cart.length) return 0;
       return Math.round(getBaseCupon() * cupon.pct) / 100;
     }
+    // Acepta el código solo o el mensaje completo pegado desde WhatsApp
     function normCupon(t) {
-      let c = String(t || '').toUpperCase().replace(/[^A-Z0-9-]/g, '');
-      if (/^[A-Z0-9]{6}$/.test(c)) c = 'TOR-' + c;
-      if (/^TOR[A-Z0-9]{6}$/.test(c)) c = 'TOR-' + c.slice(3);
-      return c;
+      const u = String(t || '').toUpperCase();
+      const m = u.match(/TOR[-‐–—_ ]([A-Z0-9]{6})(?![A-Z0-9])/) || u.replace(/[*_~`\s]/g, '').match(/TOR-?([A-Z0-9]{6})(?![A-Z0-9])/);
+      if (m) return 'TOR-' + m[1];
+      const c = u.replace(/[^A-Z0-9]/g, '');
+      if (/^[A-Z0-9]{6}$/.test(c)) return 'TOR-' + c;
+      return c.slice(0, 12);
     }
+    function pegarCupon(e) {
+      const t = (e.clipboardData || window.clipboardData || { getData: () => '' }).getData('text');
+      if (!t) return;
+      e.preventDefault();
+      e.target.value = normCupon(t);
+      aplicarCupon();
+    }
+    // Enlace del mensaje: torronsguatemala.com/?cupon=TOR-XXXXXX aplica el cupón solo
+    window.addEventListener('load', () => setTimeout(async () => {
+      let q = null;
+      try { q = new URLSearchParams(location.search).get('cupon'); } catch (e) {}
+      if (!q) return;
+      try { const u = new URL(location.href); u.searchParams.delete('cupon'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
+      const code = normCupon(q);
+      const r = await validarCupon(code, '');
+      if (!r.ok) { showToast('🎟️ ' + r.msg); return; }
+      cupon = { code, pct: r.pct, vence: r.vence, conTel: r.conTel };
+      try { localStorage.setItem('torronsCupon', JSON.stringify(cupon)); } catch (e) {}
+      updateCartUI();
+      showToast(`🎉 ¡Tu cupón ${code} (${r.pct}%) ya está listo! Agrega tus productos al carrito`);
+    }, 600));
     async function sha256Hex(t) {
       const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
       return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
@@ -2166,7 +2190,7 @@
         document.getElementById('cart-cupon').textContent = `−Q ${getCartDescuento().toFixed(2)}`;
       } else {
         if (!document.getElementById('cupon-input')) {
-          box.innerHTML = `<div class="cb-row"><input id="cupon-input" maxlength="12" placeholder="🎟️ ¿Tienes cupón? TOR-XXXXXX" autocomplete="off" onkeydown="if(event.key==='Enter')aplicarCupon()"><button id="cupon-btn" onclick="aplicarCupon()">Aplicar</button></div>
+          box.innerHTML = `<div class="cb-row"><input id="cupon-input" placeholder="🎟️ ¿Tienes cupón? Pégalo aquí" autocomplete="off" onpaste="pegarCupon(event)" onkeydown="if(event.key==='Enter')aplicarCupon()"><button id="cupon-btn" onclick="aplicarCupon()">Aplicar</button></div>
             <div class="cb-err" id="cupon-err"></div>`;
         }
         row.style.display = 'none';
