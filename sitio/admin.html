@@ -154,6 +154,39 @@
     .desc-in { width: 64px !important; padding: 7px 8px !important; text-align: center; font-weight: 700; }
     .desc-final { font-size: .82rem; font-weight: 700; color: #c41e3a; white-space: nowrap; }
     .desc-final s { color: #999; font-weight: 500; margin-right: 4px; }
+
+    /* ---------- Cupones ---------- */
+    .cup-lock { max-width: 340px; margin: 10px auto; text-align: center; }
+    .cup-lock .pin { display: flex; gap: 10px; justify-content: center; margin: 14px 0; }
+    .cup-lock .pin input { width: 54px; height: 62px; text-align: center; font-size: 1.8rem; font-weight: 800; border: 2px solid var(--border); border-radius: 12px; font-family: inherit; }
+    .cup-lock .pin input:focus { border-color: var(--primary); outline: none; }
+    .cup-pcts { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; }
+    .cup-pcts button { padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--border); background: #fff; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .cup-pcts button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .cup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 560px) { .cup-grid { grid-template-columns: 1fr; } }
+    .cup-ticket { margin-top: 14px; border-radius: 18px; padding: 18px; color: #fff; background: linear-gradient(135deg, #b71c1c, #e65100); box-shadow: 0 10px 24px rgba(183,28,28,.25); position: relative; overflow: hidden; }
+    .cup-ticket:before, .cup-ticket:after { content: ''; position: absolute; top: 50%; width: 26px; height: 26px; border-radius: 50%; background: #fff; transform: translateY(-50%); }
+    .cup-ticket:before { left: -13px; } .cup-ticket:after { right: -13px; }
+    .cup-ticket .pct { font-size: 2.6rem; font-weight: 900; line-height: 1; }
+    .cup-ticket .code { display: inline-block; margin: 10px 0 6px; padding: 8px 16px; border: 2px dashed #ffd600; border-radius: 10px; font-size: 1.5rem; font-weight: 900; letter-spacing: 3px; color: #ffd600; background: rgba(0,0,0,.18); }
+    .cup-ticket .fechas { font-size: .85rem; opacity: .95; }
+    .cup-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .btn.wa { background: #25d366; } a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+    .cup-kpis { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+    .cup-kpis span { padding: 5px 12px; border-radius: 999px; font-weight: 700; font-size: .85rem; }
+    .k-vig { background: #e8f5e9; color: #1b5e20; } .k-uso { background: #ffebee; color: #b71c1c; } .k-ven { background: #eceff1; color: #455a64; }
+    .cup-row { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr auto; gap: 8px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 12px; margin-bottom: 8px; background: #fff; }
+    @media (max-width: 700px) { .cup-row { grid-template-columns: 1fr 1fr; } .cup-row .r-acts { grid-column: 1 / -1; } }
+    .cup-row .r-code { font-weight: 900; letter-spacing: 1.5px; font-size: 1.02rem; }
+    .cup-row .r-sm { font-size: .8rem; color: #666; }
+    .cup-row .r-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .cup-row.usado { background: #ffebee; border-color: #e53935; }
+    .cup-row.usado .r-code { color: #c62828; text-decoration: line-through; }
+    .cup-row.vencido { background: #f5f5f5; opacity: .75; }
+    .cup-est { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
+    .cup-est.vigente { background: #2e7d32; color: #fff; } .cup-est.usado { background: #e53935; color: #fff; } .cup-est.vencido { background: #78909c; color: #fff; }
+    .c-cupon { margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: #fff8e1; border: 1.5px dashed #f9a825; font-size: .85rem; font-weight: 700; color: #6d4c00; }
   </style>
 </head>
 <body>
@@ -187,6 +220,7 @@
         <button class="tab active" data-tab="productos" onclick="showTab('productos')">🏷️ Precios y stock</button>
         <button class="tab" data-tab="ventas" onclick="showTab('ventas')">📊 Ventas</button>
         <button class="tab" data-tab="pedidos" onclick="showTab('pedidos')">🧾 Comandas <span id="new-badge" class="badge-new" style="display:none">0</span></button>
+        <button class="tab" data-tab="cupones" onclick="showTab('cupones')">🎟️ Cupones</button>
         <button class="tab" data-tab="motoristas" onclick="showTab('motoristas')">🛵 Motoristas <span id="sol-badge" class="badge-new" style="display:none">0</span></button>
         <button class="tab" data-tab="ajustes" onclick="showTab('ajustes')">⚙️ Ajustes</button>
       </div>
@@ -230,6 +264,58 @@
           </div>
           <p class="hint">Cada pedido enviado por WhatsApp desde la página llega aquí como comanda. Usa <strong>🖨️ Imprimir</strong> para tu impresora térmica de 58 mm. Al terminar, márcalo como <strong>Confirmado</strong> (o <strong>Cancelado</strong>) para que cuente en las ventas.</p>
           <div id="orders-list"></div>
+        </div>
+      </div>
+
+      <!-- Cupones -->
+      <div class="panel" id="panel-cupones">
+        <div class="card" id="cup-lock">
+          <div class="cup-lock">
+            <div style="font-size:2.4rem">🔒</div>
+            <h3 id="cup-lock-title">Cupones protegidos</h3>
+            <p class="hint" id="cup-lock-hint">Escribe tu clave de 4 dígitos.</p>
+            <div class="pin" id="cup-pin">
+              <input inputmode="numeric" maxlength="1" type="password" autocomplete="off">
+              <input inputmode="numeric" maxlength="1" type="password" autocomplete="off">
+              <input inputmode="numeric" maxlength="1" type="password" autocomplete="off">
+              <input inputmode="numeric" maxlength="1" type="password" autocomplete="off">
+            </div>
+            <p class="hint" id="cup-lock-err" style="color:#c62828;min-height:1.2em;"></p>
+          </div>
+        </div>
+
+        <div id="cup-app" style="display:none;">
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 style="margin:0;">🎟️ Crear cupón de descuento</h3>
+              <button class="btn ghost small" style="margin-left:auto" onclick="cupBloquear()">🔒 Bloquear</button>
+              <button class="btn ghost small" onclick="cupCambiarClave()">🔑 Cambiar clave</button>
+            </div>
+            <p class="hint" id="cup-desde" style="display:none;"></p>
+            <div class="cup-grid" style="margin-top:8px;">
+              <div><label for="cup-nombre">Nombre del cliente</label><input id="cup-nombre" class="txt" maxlength="60" placeholder="Ej: María López"></div>
+              <div><label for="cup-tel">Teléfono (WhatsApp)</label><input id="cup-tel" class="txt" inputmode="tel" maxlength="20" placeholder="Ej: 5555 1234"></div>
+            </div>
+            <label>Descuento</label>
+            <div class="cup-pcts" id="cup-pcts"></div>
+            <div class="cup-grid">
+              <div><label for="cup-pct">Otro % (1 a 90)</label><input id="cup-pct" class="txt" type="number" min="1" max="90" value="10" oninput="cupPctManual()"></div>
+              <div><label for="cup-dias">Válido por (días)</label><input id="cup-dias" class="txt" type="number" min="1" max="365" value="30"></div>
+            </div>
+            <label for="cup-motivo">Motivo (sale en el mensaje)</label>
+            <input id="cup-motivo" class="txt" maxlength="90" value="el lanzamiento de nuestra página web">
+            <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:600;"><input type="checkbox" id="cup-solo-tel" checked> Solo puede usarlo ese número de teléfono</label>
+            <button class="btn" style="margin-top:12px;" onclick="cupCrear()">✨ Crear cupón</button>
+            <div id="cup-result"></div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom:4px;">📋 Cupones emitidos</h3>
+            <div class="cup-kpis" id="cup-kpis"></div>
+            <input id="cup-buscar" class="txt" placeholder="🔎 Buscar por nombre, teléfono o código" oninput="renderCupones()">
+            <label style="display:inline-flex;gap:6px;align-items:center;margin:8px 0;"><input type="checkbox" id="cup-ocultar" onchange="renderCupones()"> Ocultar usados y vencidos</label>
+            <div id="cup-list"></div>
+          </div>
         </div>
       </div>
 
@@ -450,6 +536,9 @@
       listen(db.ref('stock'), s => { stock = s.val() || {}; renderProducts(); });
       listen(db.ref('precios'), s => { prices = s.val() || {}; renderProducts(); });
       listen(db.ref('config/descuentos'), s => { descuentos = s.val() || {}; renderProducts(); });
+      listen(db.ref('cupones'), s => { cupones = s.val() || {}; renderCupones(); renderOrders(); });
+      listen(db.ref('cuponesInfo'), s => { cuponesInfo = s.val() || {}; renderCupones(); renderOrders(); });
+      listen(db.ref('cuponesCfg/pin'), s => { cupPinHash = s.val() || ''; cupPinListo = true; cupMostrarLock(); });
       listen(db.ref('config/horario'), s => cargarHorario(s.val() || {}));
       listen(db.ref('motoristas'), s => { motoristas = s.val() || {}; renderMotoristas(); });
       listen(db.ref('solicitudes').orderByChild('ts').limitToLast(100), s => { solicitudes = s.val() || {}; renderSolicitudes(); });
@@ -491,6 +580,7 @@
     function showTab(name) {
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
       document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+      if (name === 'cupones') cupMostrarLock();
     }
 
     // ---------- Precios y stock ----------
@@ -978,8 +1068,9 @@
       const txt = `Hola ${nombre}, te escribimos de Café Torrons sobre tu pedido #${o.key.slice(-5).toUpperCase()}. `;
       return `https://wa.me/${n}?text=${encodeURIComponent(txt)}`;
     }
+    function cuponDesc(o) { return o && o.cupon ? (Number(o.cupon.descuento) || 0) : 0; }
     function orderTotal(o) {
-      const sub = Number(o.subtotal) || 0;
+      const sub = (Number(o.subtotal) || 0) - cuponDesc(o);
       const env = Number((o.cliente || {}).envio); return o.metodo === 'delivery' ? sub + (isNaN(env) || !(o.cliente || {}).envio ? 30 : env) : sub;
     }
     function fmtFecha(ts) {
@@ -1024,6 +1115,7 @@
                  ${it.nota ? `<div class="c-sub"><span>↳ ${esc(it.nota)}</span></div>` : ''}
                  ${(it.detalle || []).map(d => `<div class="c-sub"><span>• ${esc(d)}</span></div>`).join('')}`
             ).join('')}
+            ${o.cupon ? `<div class="c-item" style="color:#2e7d32;font-weight:700"><span>🎟️ Cupón ${esc(o.cupon.codigo)} (−${Number(o.cupon.pct) || 0}%)</span><span style="white-space:nowrap">−${q(cuponDesc(o))}</span></div>` : ''}
             ${o.metodo !== 'pickup' ? `<div class="c-item" style="color:#555"><span>🛵 Envío${Number(c.km) ? ' (' + Number(c.km).toFixed(1) + ' km)' : ''}${o.metodo === 'cash' ? ' · efectivo' : ' · tarjeta'}</span><span>${q(envioDe(o))}</span></div>` : ''}
           </div>
           ${cx && cx.estado === 'solicitada' && o.estado !== 'cancelado' ? `<div class="cx-box">⚠️ <strong>El cliente pidió cancelar.</strong>
@@ -1032,6 +1124,7 @@
           <div class="c-foot">
             <div class="c-total">Total: ${q(orderTotal(o))}${o.metodo === 'cash' ? ' + envío' : ''}</div>
             <div class="c-actions">
+              ${c.tel ? `<button class="btn small" style="background:#f57f17" onclick="cupDesdeComanda('${o.key}')">🎁 ${cuponDePedido(o.key) ? 'Cupón ✓' : 'Regalar cupón'}</button>` : ''}
               <button class="btn small" onclick="printComanda('${o.key}')">🖨️ ${o.impreso ? 'Reimprimir' : 'Imprimir'}</button>
               ${et === 'preparando' || (et === 'recibido' && o.impreso) ? `<button class="btn small ok" onclick="marcarListo('${o.key}')">✅ Listo</button>` : ''}
               ${o.metodo !== 'pickup' && !entregas[o.key] && (et === 'preparando' || et === 'listo' || (et === 'recibido' && o.impreso)) ? `<button class="btn small" style="background:#6a1b9a" onclick="pedirMotorista('${o.key}')">🛵 Pedir motorista</button>` : ''}
@@ -1099,6 +1192,7 @@
             + (it.detalle || []).map(d => { const t = ne(d).replace(/^Base: /, ''); return `<div class="it sub">${/^\d/.test(t) ? '' : '1 x '}${esc(t)}</div>`; }).join('')
         ).join('')}
         <div class="hr"></div>
+        ${o.cupon ? row('CUPON ' + String(o.cupon.codigo) + ' -' + (Number(o.cupon.pct) || 0) + '%', '-' + q(cuponDesc(o))) : ''}
         ${row('TOTAL', q(orderTotal(o)) + (o.metodo === 'cash' ? ' + envío' : ''), 'b')}
         <div style="height:14mm"></div>`;
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comanda</title><style>
@@ -1360,6 +1454,236 @@
       db.ref('pedidos/' + key + '/estado').set(estado)
         .then(() => toast('Pedido marcado como ' + estado))
         .catch(permError);
+    }
+
+    // ================= CUPONES DE DESCUENTO =================
+    // cupones/{CODIGO}      -> datos públicos mínimos (pct, emitido, vence, telHash, usado)  · la página lee solo el código que escribe el cliente
+    // cuponesInfo/{CODIGO}  -> datos privados (nombre, teléfono, pedido de origen) · solo administrador
+    // cuponesCfg/pin        -> hash de la clave de 4 dígitos · solo administrador
+    var cupones = {}, cuponesInfo = {}, cupPinHash = '', cupPinListo = false;
+    var cupPendiente = null, cupPctSel = 10, cupPinModo = 'entrar', cupPinNuevo = '';
+    const CUP_PCTS = [5, 10, 15, 20, 25, 30];
+    const CUP_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+    async function sha256(t) {
+      const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+      return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+    function tel8(t) { const d = String(t || '').replace(/\D/g, ''); return d.slice(-8); }
+    function telHash(t, code) { return sha256('torrons:' + tel8(t) + ':' + code); }
+    function fechaCorta(ts) { return ts ? new Date(ts).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'; }
+    function cupDesbloqueado() { try { return !!cupPinHash && sessionStorage.getItem('cupOK') === cupPinHash; } catch (e) { return false; } }
+    function cupEstado(c) { return c.usado ? 'usado' : (Number(c.vence) < Date.now() ? 'vencido' : 'vigente'); }
+    function cuponDePedido(key) { return Object.keys(cuponesInfo).find(k => (cuponesInfo[k] || {}).pedido === key) || ''; }
+
+    // ---------- Clave de 4 dígitos ----------
+    function cupMostrarLock() {
+      const lock = document.getElementById('cup-lock'), app = document.getElementById('cup-app');
+      if (!lock || !cupPinListo) return;
+      const ok = cupDesbloqueado() && cupPinModo === 'entrar';
+      lock.style.display = ok ? 'none' : 'block';
+      app.style.display = ok ? 'block' : 'none';
+      if (ok) { cupAplicarPendiente(); return; }
+      if (!cupPinHash && cupPinModo === 'entrar') cupPinModo = 'crear';
+      const T = {
+        entrar: ['Cupones protegidos', 'Escribe tu clave de 4 dígitos.'],
+        crear: ['Crea tu clave', 'Elige una clave de 4 dígitos para proteger los cupones.'],
+        confirmar: ['Confirma tu clave', 'Escribe otra vez la misma clave.'],
+        actual: ['Cambiar clave', 'Primero escribe tu clave actual.']
+      }[cupPinModo];
+      document.getElementById('cup-lock-title').textContent = T[0];
+      document.getElementById('cup-lock-hint').textContent = T[1];
+      if (document.querySelector('.panel.active') && document.querySelector('.panel.active').id === 'panel-cupones') {
+        setTimeout(() => { const f = document.querySelector('#cup-pin input'); f && f.focus(); }, 60);
+      }
+    }
+    function cupPinLimpiar() { document.querySelectorAll('#cup-pin input').forEach(i => i.value = ''); const f = document.querySelector('#cup-pin input'); f && f.focus(); }
+    (function cupPinInputs() {
+      const ins = Array.from(document.querySelectorAll('#cup-pin input'));
+      ins.forEach((inp, k) => {
+        inp.addEventListener('input', () => {
+          inp.value = inp.value.replace(/\D/g, '').slice(-1);
+          if (inp.value && k < 3) ins[k + 1].focus();
+          const pin = ins.map(i => i.value).join('');
+          if (pin.length === 4) cupPinListoPara(pin);
+        });
+        inp.addEventListener('keydown', e => { if (e.key === 'Backspace' && !inp.value && k > 0) ins[k - 1].focus(); });
+      });
+    })();
+    async function cupPinListoPara(pin) {
+      const err = document.getElementById('cup-lock-err'); err.textContent = '';
+      const h = await sha256('torrons-cupones-pin:' + pin);
+      if (cupPinModo === 'entrar' || cupPinModo === 'actual') {
+        if (h !== cupPinHash) { err.textContent = 'Clave incorrecta'; cupPinLimpiar(); return; }
+        if (cupPinModo === 'actual') { cupPinModo = 'crear'; cupPinLimpiar(); cupMostrarLock(); return; }
+        try { sessionStorage.setItem('cupOK', h); } catch (e) {}
+        cupPinLimpiar(); cupMostrarLock(); return;
+      }
+      if (cupPinModo === 'crear') { cupPinNuevo = h; cupPinModo = 'confirmar'; cupPinLimpiar(); cupMostrarLock(); return; }
+      if (cupPinModo === 'confirmar') {
+        if (h !== cupPinNuevo) { err.textContent = 'No coinciden. Empecemos de nuevo.'; cupPinModo = 'crear'; cupPinLimpiar(); cupMostrarLock(); return; }
+        try {
+          await db.ref('cuponesCfg/pin').set(h);
+          try { sessionStorage.setItem('cupOK', h); } catch (e) {}
+          cupPinHash = h; cupPinModo = 'entrar'; cupPinLimpiar(); toast('🔑 Clave guardada'); cupMostrarLock();
+        } catch (e) { err.textContent = 'No se pudo guardar: ' + e.message; }
+      }
+    }
+    function cupBloquear() { try { sessionStorage.removeItem('cupOK'); } catch (e) {} cupPinModo = 'entrar'; cupMostrarLock(); }
+    function cupCambiarClave() { try { sessionStorage.removeItem('cupOK'); } catch (e) {} cupPinModo = 'actual'; cupMostrarLock(); }
+
+    // ---------- Formulario ----------
+    function cupPintarPcts() {
+      document.getElementById('cup-pcts').innerHTML = CUP_PCTS.map(p => `<button type="button" class="${p === cupPctSel ? 'on' : ''}" onclick="cupSelPct(${p})">${p}%</button>`).join('');
+    }
+    function cupSelPct(p) { cupPctSel = p; document.getElementById('cup-pct').value = p; cupPintarPcts(); }
+    function cupPctManual() { cupPctSel = Number(document.getElementById('cup-pct').value) || 0; cupPintarPcts(); }
+    cupPintarPcts();
+
+    function cupDesdeComanda(key) {
+      const o = orders.find(x => x.key === key); if (!o) return;
+      const c = o.cliente || {};
+      cupPendiente = { nombre: c.nombre || '', tel: c.tel || '', pedido: key };
+      showTab('cupones');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function cupAplicarPendiente() {
+      const d = document.getElementById('cup-desde');
+      if (!cupPendiente) return;
+      const p = cupPendiente; cupPendiente = null;
+      document.getElementById('cup-nombre').value = p.nombre;
+      document.getElementById('cup-tel').value = p.tel;
+      document.getElementById('cup-nombre').dataset.pedido = p.pedido;
+      d.style.display = 'block';
+      d.innerHTML = `🧾 Desde la comanda <strong>#${esc(p.pedido.slice(-5).toUpperCase())}</strong> · el cupón queda ligado a este cliente.`;
+      const ya = cuponDePedido(p.pedido);
+      document.getElementById('cup-result').innerHTML = ya
+        ? `<p class="hint" style="margin-top:12px;">⚠️ Esta comanda ya tiene un cupón. Puedes reenviarlo o crear otro.</p>` + cupTicket(ya)
+        : '';
+    }
+
+    async function cupGenerarCodigo() {
+      for (let n = 0; n < 20; n++) {
+        const r = crypto.getRandomValues(new Uint32Array(6));
+        const code = 'TOR-' + Array.from(r, x => CUP_ABC[x % CUP_ABC.length]).join('');
+        if (cupones[code] || cuponesInfo[code]) continue;
+        const s = await db.ref('cupones/' + code).once('value');
+        if (!s.exists()) return code;
+      }
+      throw new Error('No se pudo generar un código único');
+    }
+
+    async function cupCrear() {
+      const nombre = document.getElementById('cup-nombre').value.trim();
+      const tel = document.getElementById('cup-tel').value.trim();
+      const pct = Math.round(Number(document.getElementById('cup-pct').value));
+      const dias = Math.round(Number(document.getElementById('cup-dias').value));
+      const motivo = document.getElementById('cup-motivo').value.trim();
+      const soloTel = document.getElementById('cup-solo-tel').checked;
+      const pedido = document.getElementById('cup-nombre').dataset.pedido || '';
+      if (!nombre) return toast('Escribe el nombre del cliente');
+      if (soloTel && tel8(tel).length < 8) return toast('Escribe un teléfono de 8 dígitos');
+      if (!(pct >= 1 && pct <= 90)) return toast('El descuento debe ser de 1% a 90%');
+      if (!(dias >= 1 && dias <= 365)) return toast('Los días deben ser de 1 a 365');
+      try {
+        const code = await cupGenerarCodigo();
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const emitido = Date.now();
+        const vence = hoy.getTime() + (dias + 1) * 86400000 - 1;
+        const upd = {};
+        upd['cupones/' + code] = { pct, emitido, vence, dias, telHash: soloTel ? await telHash(tel, code) : '' };
+        upd['cuponesInfo/' + code] = { nombre: nombre.slice(0, 60), tel: tel.slice(0, 20), pedido: pedido || null, motivo: motivo.slice(0, 90), soloTel };
+        await db.ref().update(upd);
+        cupones[code] = upd['cupones/' + code]; cuponesInfo[code] = upd['cuponesInfo/' + code];
+        document.getElementById('cup-result').innerHTML = cupTicket(code);
+        document.getElementById('cup-nombre').value = ''; document.getElementById('cup-tel').value = '';
+        document.getElementById('cup-nombre').dataset.pedido = ''; document.getElementById('cup-desde').style.display = 'none';
+        renderCupones(); renderOrders();
+        toast('🎉 Cupón ' + code + ' creado');
+      } catch (e) { toast('No se pudo crear: ' + e.message); }
+    }
+
+    // ---------- Mensaje y ticket ----------
+    function cupMensaje(code) {
+      const c = cupones[code] || {}, i = cuponesInfo[code] || {};
+      const nombre = String(i.nombre || '').split(' ')[0];
+      const motivo = i.motivo || 'el lanzamiento de nuestra página web';
+      const NL = '\n';
+      return `🎉 *¡FELICIDADES${nombre ? ', ' + nombre.toUpperCase() : ''}!* 🎉${NL}${NL}` +
+        `Gracias por tu compra en *Café Torrons* ☕🥪${NL}` +
+        `Por ${motivo} te llevas:${NL}${NL}` +
+        `🎁 *${c.pct}% DE DESCUENTO* 🎁${NL}` +
+        `en tu próxima compra${NL}${NL}` +
+        `🎟️ Tu código: *${code}*${NL}` +
+        `📅 Emitido: ${fechaCorta(c.emitido)}${NL}` +
+        `⏳ Vence: ${fechaCorta(c.vence)} (válido ${c.dias || 30} días)${NL}${NL}` +
+        `👉 Pide en *torronsguatemala.com* y escribe tu código arriba en el carrito 🛒${NL}` +
+        `_Válido una sola vez${i.soloTel ? ', con este número de teléfono' : ''}. No incluye el envío._${NL}${NL}` +
+        `¡Te esperamos! ❤️${NL}*Café Torrons · Lo mejor de dos mundos*`;
+    }
+    function cupWaLink(code) {
+      let n = String((cuponesInfo[code] || {}).tel || '').replace(/\D/g, '');
+      if (n.length === 8) n = '502' + n;
+      return `https://wa.me/${n}?text=${encodeURIComponent(cupMensaje(code))}`;
+    }
+    function cupCopiar(t, msg) {
+      const ok = () => toast(msg);
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok).catch(() => copiarRespaldo(t, ok));
+      else copiarRespaldo(t, ok);
+    }
+    function cupCopiarCodigo(code) { cupCopiar(code, '📋 Código ' + code + ' copiado'); }
+    function cupCopiarMsg(code) { cupCopiar(cupMensaje(code), '📋 Mensaje copiado · pégalo en WhatsApp'); }
+    function cupTicket(code) {
+      const c = cupones[code] || {}, i = cuponesInfo[code] || {};
+      const est = cupEstado(c);
+      return `<div class="cup-ticket">
+        <div style="font-weight:800;opacity:.95">🎉 ¡Felicidades${i.nombre ? ', ' + esc(String(i.nombre).split(' ')[0]) : ''}!</div>
+        <div class="pct">${Number(c.pct) || 0}% OFF</div>
+        <div class="code">${esc(code)}</div>
+        <div class="fechas">📅 Emitido ${esc(fechaCorta(c.emitido))} · ⏳ Vence ${esc(fechaCorta(c.vence))}${est !== 'vigente' ? ` · <strong>${est.toUpperCase()}</strong>` : ''}</div>
+      </div>
+      <div class="cup-acts">
+        ${i.tel && est === 'vigente' ? `<a class="btn wa" href="${cupWaLink(code)}" target="_blank" rel="noopener">📲 Enviar por WhatsApp</a>` : ''}
+        <button class="btn small ghost" onclick="cupCopiarMsg('${code}')">📋 Copiar mensaje</button>
+        <button class="btn small ghost" onclick="cupCopiarCodigo('${code}')">📋 Copiar código</button>
+      </div>`;
+    }
+
+    // ---------- Lista ----------
+    function renderCupones() {
+      const el = document.getElementById('cup-list'); if (!el) return;
+      const codes = Array.from(new Set(Object.keys(cupones).concat(Object.keys(cuponesInfo)))).filter(k => cupones[k]);
+      const all = codes.map(k => ({ code: k, c: cupones[k], i: cuponesInfo[k] || {}, est: cupEstado(cupones[k]) }))
+        .sort((a, b) => (Number(b.c.emitido) || 0) - (Number(a.c.emitido) || 0));
+      const n = e => all.filter(x => x.est === e).length;
+      document.getElementById('cup-kpis').innerHTML = `<span class="k-vig">🟢 Vigentes: ${n('vigente')}</span><span class="k-uso">🔴 Usados: ${n('usado')}</span><span class="k-ven">⚪ Vencidos: ${n('vencido')}</span>`;
+      const qy = (document.getElementById('cup-buscar').value || '').toLowerCase().trim();
+      const qd = qy.replace(/\D/g, '');
+      const ocultar = document.getElementById('cup-ocultar').checked;
+      let list = all.filter(x => !ocultar || x.est === 'vigente');
+      if (qy) list = list.filter(x => x.code.toLowerCase().includes(qy) || String(x.i.nombre || '').toLowerCase().includes(qy) || (qd.length >= 3 && String(x.i.tel || '').replace(/\D/g, '').includes(qd)));
+      if (!list.length) { el.innerHTML = `<p class="hint">${all.length ? 'No hay cupones con ese filtro.' : 'Todavía no has creado cupones.'}</p>`; return; }
+      el.innerHTML = list.slice(0, 300).map(({ code, c, i, est }) => {
+        const u = c.usado || {};
+        return `<div class="cup-row ${est}">
+          <div><div class="r-code">${esc(code)}</div><span class="cup-est ${est}">${est === 'usado' ? '🔴 USADO' : est === 'vencido' ? 'VENCIDO' : '🟢 VIGENTE'}</span> <strong>${Number(c.pct) || 0}%</strong></div>
+          <div><strong>${esc(i.nombre || '—')}</strong><div class="r-sm">📱 ${esc(i.tel || 'cualquier número')}</div>
+            ${est === 'usado' ? `<div class="r-sm" style="color:#c62828;font-weight:700">Usado ${esc(fechaCorta(u.ts))}${u.pedido ? ' · pedido #' + esc(String(u.pedido).slice(-5).toUpperCase()) : ''}</div>` : ''}</div>
+          <div class="r-sm">📅 Emitido: ${esc(fechaCorta(c.emitido))}<br>⏳ Vence: ${esc(fechaCorta(c.vence))}</div>
+          <div class="r-acts">
+            <button class="btn small ghost" onclick="cupCopiarCodigo('${code}')">📋 Código</button>
+            <button class="btn small ghost" onclick="cupCopiarMsg('${code}')">📋 Mensaje</button>
+            ${i.tel && est === 'vigente' ? `<a class="btn small wa" href="${cupWaLink(code)}" target="_blank" rel="noopener">📲 WhatsApp</a>` : ''}
+            ${est === 'vigente' ? `<button class="btn small ghost" onclick="cupAnular('${code}')">🗑️</button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+    async function cupAnular(code) {
+      if (!confirm('¿Anular el cupón ' + code + '? El cliente ya no podrá usarlo.')) return;
+      const upd = {}; upd['cupones/' + code] = null; upd['cuponesInfo/' + code] = null;
+      try { await db.ref().update(upd); delete cupones[code]; delete cuponesInfo[code]; renderCupones(); renderOrders(); toast('Cupón anulado'); }
+      catch (e) { toast('No se pudo anular: ' + e.message); }
     }
   </script>
 </body>

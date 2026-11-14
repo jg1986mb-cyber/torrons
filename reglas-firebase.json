@@ -1,0 +1,124 @@
+{
+  "rules": {
+    "stock": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    },
+    "precios": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      "$id": {
+        ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 10000"
+      }
+    },
+    "config": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    },
+    "pedidos": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".indexOn": [
+        "ts"
+      ],
+      "$pedido": {
+        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (!data.exists() && newData.child('estado').val() === 'pendiente')",
+        ".validate": "newData.hasChildren(['ts', 'items', 'estado'])",
+        "ts": {
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        },
+        "estado": {
+          ".validate": "newData.val() === 'pendiente' || newData.val() === 'confirmado' || newData.val() === 'cancelado'"
+        },
+        "pago": {
+          ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || !data.exists()",
+          ".validate": "newData.hasChildren(['link', 'monto', 'estado'])",
+          "estado": {
+            ".validate": "newData.val() === 'pendiente' || (newData.val() === 'pagado' && auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1')"
+          }
+        }
+      }
+    },
+    "seguimiento": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".indexOn": [
+        "ts"
+      ],
+      "$id": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (!data.exists() && newData.child('etapa').val() === 'recibido') || (auth != null && root.child('entregas/' + $id + '/motorista').val() === auth.uid && newData.child('etapa').val().matches(/^(en_camino|entregado)$/))",
+        "etapa": {
+          ".validate": "newData.isString() && newData.val().matches(/^(recibido|preparando|listo|en_camino|entregado|cancelado)$/)"
+        },
+        "cancelacion": {
+          ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (!data.exists() && data.parent().child('etapa').val() === 'recibido' && newData.child('estado').val() === 'solicitada')"
+        }
+      }
+    },
+    "motoristas": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      "$uid": {
+        ".read": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || auth.uid === $uid",
+        ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+        "terminos": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "enLinea": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isBoolean()"
+        }
+      }
+    },
+    "solicitudes": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      "$id": {
+        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || !data.exists()",
+        ".validate": "newData.hasChildren(['nombre', 'tel', 'ts']) && newData.child('nombre').isString() && newData.child('nombre').val().length < 80 && newData.child('tel').isString() && newData.child('tel').val().length < 30",
+        "$campo": {
+          ".validate": "$campo.matches(/^(nombre|tel|zona|moto|licencia|experiencia|disponibilidad|ts|revisada)$/) && (!newData.isString() || newData.val().length < 400)"
+        }
+      }
+    },
+    "entregas": {
+      ".read": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (auth != null && root.child('motoristas/' + auth.uid + '/activo').val() === true)",
+      ".indexOn": [
+        "creado"
+      ],
+      "$k": {
+        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || ((auth != null && root.child('motoristas/' + auth.uid + '/activo').val() === true) && newData.child('pago').val() === data.child('pago').val() && ((data.child('estado').val() === 'disponible' && newData.child('estado').val() === 'asignado' && newData.child('motorista').val() === auth.uid) || (data.child('motorista').val() === auth.uid && newData.child('motorista').val() === auth.uid && newData.child('estado').val().matches(/^(asignado|recogido|entregado)$/))))"
+      }
+    },
+    "entregasPrivado": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      "$k": {
+        ".read": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (auth != null && root.child('entregas/' + $k + '/motorista').val() === auth.uid)",
+        ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+      }
+    },
+    "ubicaciones": {
+      "$k": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (auth != null && root.child('entregas/' + $k + '/motorista').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts'])"
+      }
+    },
+    "cupones": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      "$code": {
+        ".read": true,
+        "usado": {
+          ".write": "!data.exists() && newData.exists() && root.child('pedidos/' + newData.child('pedido').val() + '/cupon/codigo').val() === $code && data.parent().child('vence').val() > now",
+          ".validate": "newData.hasChildren(['pedido', 'ts'])"
+        }
+      }
+    },
+    "cuponesInfo": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    },
+    "cuponesCfg": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    }
+  }
+}
