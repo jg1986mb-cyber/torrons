@@ -64,6 +64,8 @@
       <form id="form" onsubmit="enviar(event)">
         <label for="nombre">Nombre completo *</label>
         <input id="nombre" required maxlength="70">
+        <label for="correo">Correo electrónico * <span style="font-weight:500;color:#888">(será tu usuario en la app)</span></label>
+        <input id="correo" type="email" required maxlength="80" autocomplete="email" inputmode="email" placeholder="Ej: tunombre@gmail.com">
         <div class="row">
           <div><label for="tel">Teléfono / WhatsApp *</label><input id="tel" type="tel" required maxlength="20" placeholder="Ej: 5555 1234"></div>
           <div><label for="zona">¿En qué zona o municipio vives? *</label><input id="zona" required maxlength="60" placeholder="Ej: Zona 6"></div>
@@ -123,7 +125,9 @@
       const err = document.getElementById('err'); err.textContent = '';
       if (!document.getElementById('acepto').checked) { err.textContent = 'Debes aceptar las condiciones.'; return; }
       const btn = document.getElementById('btn'); btn.disabled = true; btn.textContent = 'Enviando…';
-      const datos = { nombre: v('nombre'), tel: v('tel'), zona: v('zona'), moto: v('moto'), licencia: v('licencia'), ts: Date.now() };
+      const correo = v('correo').toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(correo)) { err.textContent = 'Escribe un correo válido, por ejemplo tunombre@gmail.com'; btn.disabled = false; btn.textContent = 'Enviar solicitud'; return; }
+      const datos = { nombre: v('nombre'), correo, tel: v('tel'), zona: v('zona'), moto: v('moto'), licencia: v('licencia'), ts: Date.now() };
       if (v('disp')) datos.disponibilidad = v('disp');
       if (v('exp')) datos.experiencia = v('exp');
       db.ref('solicitudes').push(datos).then(() => {

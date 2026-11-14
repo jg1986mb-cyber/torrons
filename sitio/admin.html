@@ -1382,6 +1382,7 @@
         const wa = `https://wa.me/${tel}?text=${encodeURIComponent('Hola ' + String(x.nombre || '').split(' ')[0] + ', te escribimos de Café Torrons por tu solicitud de motorista.')}`;
         return `<div class="sol-card ${x.revisada ? 'rev' : 'nueva'}">
           <div class="sol-head"><strong>${esc(x.nombre || '—')}</strong><span class="sol-est">${x.revisada ? '✔ Revisada' : '🆕 Nueva'}</span></div>
+          ${fila('📧', 'Correo', x.correo)}
           ${fila('📱', 'Teléfono', x.tel)}
           ${fila('📅', 'Enviada', x.ts ? new Date(x.ts).toLocaleString('es-GT') : '')}
           ${fila('📍', 'Vive en', x.zona)}
@@ -1393,13 +1394,25 @@
             <a class="btn small wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>
             <a class="btn small ghost" href="tel:+${tel}">📞 Llamar</a>
             <button class="btn small ghost" onclick="copiarSolicitud('${k}')">📋 Copiar datos</button>
+            <button class="btn small" onclick="crearDesdeSolicitud('${k}')">👤 Crear usuario</button>
             ${x.revisada ? '' : `<button class="btn small ghost" onclick="db.ref('solicitudes/${k}/revisada').set(true)">✔ Marcar revisada</button>`}
           </div>
         </div>`; }).join('') : '<p class="hint">Aún no hay solicitudes.</p>';
     }
+    function crearDesdeSolicitud(k) {
+      const x = solicitudes[k] || {};
+      document.getElementById('m-nombre').value = x.nombre || '';
+      document.getElementById('m-tel').value = String(x.tel || '').replace(/\D/g, '').slice(-8);
+      document.getElementById('m-correo').value = x.correo || '';
+      const c = document.getElementById('m-clave'); c.value = '';
+      const msg = document.getElementById('m-msg');
+      msg.textContent = x.correo ? '✍️ Datos copiados de la solicitud. Escribe una contraseña inicial y toca "Crear cuenta".' : '⚠️ Esta solicitud no trae correo (llegó antes del cambio). Pídeselo por WhatsApp y escríbelo aquí.';
+      c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => (x.correo ? c : document.getElementById('m-correo')).focus(), 400);
+    }
     function copiarSolicitud(k) {
       const x = solicitudes[k] || {};
-      const t = ['🛵 Solicitud de motorista — Café Torrons', 'Nombre: ' + (x.nombre || ''), 'Teléfono: ' + (x.tel || ''), 'Enviada: ' + (x.ts ? new Date(x.ts).toLocaleString('es-GT') : ''),
+      const t = ['🛵 Solicitud de motorista — Café Torrons', 'Nombre: ' + (x.nombre || ''), 'Correo: ' + (x.correo || '-'), 'Teléfono: ' + (x.tel || ''), 'Enviada: ' + (x.ts ? new Date(x.ts).toLocaleString('es-GT') : ''),
         'Vive en: ' + (x.zona || '-'), 'Moto: ' + (x.moto || '-'), 'Licencia: ' + (x.licencia || '-'), 'Horario: ' + (x.disponibilidad || '-'), 'Experiencia: ' + (x.experiencia || '-')].join('\n');
       const ok = () => toast('📋 Datos copiados');
       if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok).catch(() => copiarRespaldo(t, ok)); else copiarRespaldo(t, ok);

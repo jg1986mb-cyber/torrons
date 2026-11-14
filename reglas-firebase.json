@@ -74,7 +74,7 @@
         ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || !data.exists()",
         ".validate": "newData.hasChildren(['nombre', 'tel', 'ts']) && newData.child('nombre').isString() && newData.child('nombre').val().length < 80 && newData.child('tel').isString() && newData.child('tel').val().length < 30",
         "$campo": {
-          ".validate": "$campo.matches(/^(nombre|tel|zona|moto|licencia|experiencia|disponibilidad|ts|revisada)$/) && (!newData.isString() || newData.val().length < 400)"
+          ".validate": "$campo.matches(/^(nombre|correo|tel|zona|moto|licencia|experiencia|disponibilidad|ts|revisada)$/) && (!newData.isString() || newData.val().length < 400)"
         }
       }
     },
