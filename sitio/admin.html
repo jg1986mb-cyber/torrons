@@ -197,6 +197,8 @@
     .cup-row.vencido { background: #f5f5f5; opacity: .75; }
     .cup-est { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
     .cup-est.vigente { background: #2e7d32; color: #fff; } .cup-est.usado { background: #e53935; color: #fff; } .cup-est.vencido { background: #78909c; color: #fff; }
+    .alerta-fraude { margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: #ffebee; border: 2px solid #c62828; color: #b71c1c; font-size: .88rem; }
+    .alerta-fraude ul { margin: 6px 0 6px 18px; }
     .c-cupon { margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: #fff8e1; border: 1.5px dashed #f9a825; font-size: .85rem; font-weight: 700; color: #6d4c00; }
   </style>
 </head>
@@ -722,7 +724,8 @@
       if (o.pago) {
         if (o.pago.estado === 'pagado') {
           const pg = Number(o.pago.montoPaggo || o.pago.monto) || 0;
-          const alerta = pg + 0.01 < orderTotal(o) ? ` <span class="pay-badge pendiente">⚠️ Pagó menos que el total (Q ${orderTotal(o).toFixed(2)})</span>` : '';
+          const debe = Math.max(orderTotal(o), revisarPedido(o).esperado);
+          const alerta = pg + 0.5 < debe ? ` <span class="pay-badge pendiente" style="background:#c62828;color:#fff">🚨 Pagó menos de lo que vale (Q ${debe.toFixed(2)})</span>` : '';
           return `<span class="pay-badge pagado">✅ PAGADO con tarjeta · Q ${pg.toFixed(2)}</span>${alerta}`;
         }
         return `<span class="pay-badge pendiente">⏳ Pago pendiente · <a href="${esc(o.pago.link)}" target="_blank" rel="noopener">link</a> · <a href="#" onclick="verificarPago('${o.key}');return false;">verificar</a></span>`;
@@ -1097,6 +1100,96 @@
       const txt = `Hola ${nombre}, te escribimos de Café Torrons sobre tu pedido #${o.key.slice(-5).toUpperCase()}. `;
       return `https://wa.me/${n}?text=${encodeURIComponent(txt)}`;
     }
+
+    // ---------- Revisión de precios (anti-fraude) ----------
+    // El cliente envía sus precios desde su teléfono; aquí se recalculan con el menú real.
+    const TORRONS_LL = [14.6495488, -90.5178091];
+    function kmRecta(lat, lng) {
+      const R = 6371, r = x => x * Math.PI / 180;
+      const dLa = r(lat - TORRONS_LL[0]), dLo = r(lng - TORRONS_LL[1]);
+      const a = Math.sin(dLa / 2) ** 2 + Math.cos(r(TORRONS_LL[0])) * Math.cos(r(lat)) * Math.sin(dLo / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    function precioMenu(it) {
+      const id = String(it.id || '');
+      if (/^\d+$/.test(id)) {
+        if (BASE_PRICES[id] === undefined) return null;
+        const pct = Math.round(Number(descuentos[id]) || 0);
+        const lista = currentPrice(id);
+        return pct > 0 && pct < 100 ? Math.round(lista * (1 - pct / 100) * 100) / 100 : lista;
+      }
+      if (id === 'combo_papas') return currentPrice('x_' + COMBO_PAPAS.key);
+      if (id.startsWith('combo_')) { const k = id.slice(6); return COMBO_LIQUIDS.some(l => l.key === k) ? currentPrice('x_' + k) : null; }
+      if (id === 'crea_torrons') {
+        const det = Array.isArray(it.detalle) ? it.detalle : (it.detalle ? Object.values(it.detalle) : []);
+        if (!det.length) return null;
+        let total = 0, base = false;
+        for (const d0 of det) {
+          let d = String(d0);
+          if (d.startsWith('Base: ')) {
+            const b = CREA_BASES.find(x => x.name === d.slice(6)); if (!b) return null;
+            total += currentPrice('c_' + b.key); base = true; continue;
+          }
+          let n = 1; const m = d.match(/^(\d+) x (.*)$/); if (m) { n = Number(m[1]); d = m[2]; }
+          let mayo = false; if (d.endsWith(' + mayo')) { mayo = true; d = d.slice(0, -7); }
+          const ing = CREA_INGS.find(x => d === x.name || d.startsWith(x.name + ' ('));
+          if (!ing || !(n >= 1)) return null;
+          total += currentPrice('c_' + ing.key) * n + (mayo ? 2 : 0);
+        }
+        return base ? Math.round(total * 100) / 100 : null;
+      }
+      return null;
+    }
+    function revisarPedido(o) {
+      const prob = [];
+      let sub = 0;
+      orderItems(o).forEach(it => {
+        const cant = Number(it.cant), precio = Number(it.precio);
+        const nom = String(it.nombre || it.id || 'producto').slice(0, 40);
+        if (!(cant >= 1 && cant <= 99 && Number.isInteger(cant))) prob.push(`Cantidad inválida en "${nom}" (${it.cant})`);
+        const real = precioMenu(it);
+        if (real == null) { prob.push(`"${nom}" no está en el menú`); sub += (precio > 0 ? precio : 0) * (cant > 0 ? cant : 1); return; }
+        if (!(precio >= real - 0.5)) prob.push(`"${nom}" vino a Q${(precio || 0).toFixed(2)} y en el menú está a Q${real.toFixed(2)}`);
+        sub += real * (cant >= 1 ? cant : 1);
+      });
+      sub = Math.round(sub * 100) / 100;
+      const declarado = Number(o.subtotal) || 0;
+      if (declarado + 0.5 < sub) prob.push(`El subtotal dice Q${declarado.toFixed(2)} pero suma Q${sub.toFixed(2)}`);
+      // cupón
+      let desc = 0;
+      if (o.cupon) {
+        const cod = String(o.cupon.codigo || ''), cu = cupones[cod];
+        desc = Number(o.cupon.descuento) || 0;
+        if (!cu) prob.push(`El cupón ${cod.slice(0, 15)} no existe en tu lista`);
+        else {
+          if (Number(o.cupon.pct) > Number(cu.pct)) prob.push(`El cupón da ${cu.pct}% pero el pedido dice ${o.cupon.pct}%`);
+          const max = Math.round(sub * (Number(cu.pct) || 0)) / 100;
+          if (desc > max + 0.5) prob.push(`Descuento de cupón Q${desc.toFixed(2)} mayor al permitido (Q${max.toFixed(2)})`);
+          desc = Math.min(desc, max);
+          if (cu.usado && cu.usado.pedido && cu.usado.pedido !== o.key) prob.push(`El cupón ${cod} ya se usó en otro pedido`);
+        }
+      }
+      // envío (la distancia en línea recta es el mínimo posible)
+      let env = 0;
+      if (o.metodo !== 'pickup') {
+        const c = o.cliente || {};
+        env = Number(c.envio) || 0;
+        if (c.lat !== '' && c.lng !== '' && isFinite(Number(c.lat)) && isFinite(Number(c.lng)) && Number(c.lat)) {
+          const recta = kmRecta(Number(c.lat), Number(c.lng));
+          const minimo = Math.max(tarifa.minimo, Math.round(tarifa.base + tarifa.porKm * recta));
+          if (c.envio && env + 1 < minimo) prob.push(`Envío Q${env.toFixed(2)} muy bajo: el mínimo a esa ubicación es ~Q${minimo.toFixed(2)}`);
+          if (Number(c.km) && Number(c.km) + 0.3 < recta) prob.push(`Dice ${Number(c.km).toFixed(1)} km pero en línea recta son ${recta.toFixed(1)} km`);
+        }
+      }
+      const esperado = Math.round((sub - desc + (o.metodo === 'delivery' ? env : 0)) * 100) / 100;
+      return { prob, esperado };
+    }
+    function alertaPrecios(o) {
+      const r = revisarPedido(o);
+      if (!r.prob.length) return '';
+      return `<div class="alerta-fraude">🚨 <strong>Revisa este pedido antes de prepararlo:</strong><ul>${r.prob.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>
+        <div>Con los precios del menú debería ser <strong>${q(r.esperado)}</strong>${o.metodo === 'cash' ? ' + envío' : ''}.</div></div>`;
+    }
     function cuponDesc(o) { return o && o.cupon ? (Number(o.cupon.descuento) || 0) : 0; }
     function orderTotal(o) {
       const sub = (Number(o.subtotal) || 0) - cuponDesc(o);
@@ -1137,6 +1230,7 @@
             </div>
             <div class="c-meta">#${esc(o.key.slice(-5).toUpperCase())}</div>
           </div>
+          ${alertaPrecios(o)}
           <div class="c-items">
             ${items.map(it => it.extra
               ? `<div class="c-sub"><span>↳ ${esc(it.nombre)}</span><span>${q((Number(it.precio) || 0) * (Number(it.cant) || 1))}</span></div>`
