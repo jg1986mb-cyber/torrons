@@ -51,6 +51,9 @@
         },
         "cancelacion": {
           ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (!data.exists() && data.parent().child('etapa').val() === 'recibido' && newData.child('estado').val() === 'solicitada')"
+        },
+        "motorista": {
+          ".validate": "newData.isString() && newData.val().length < 40"
         }
       }
     },
@@ -84,7 +87,10 @@
         "creado"
       ],
       "$k": {
-        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || ((auth != null && root.child('motoristas/' + auth.uid + '/activo').val() === true) && newData.child('pago').val() === data.child('pago').val() && ((data.child('estado').val() === 'disponible' && newData.child('estado').val() === 'asignado' && newData.child('motorista').val() === auth.uid) || (data.child('motorista').val() === auth.uid && newData.child('motorista').val() === auth.uid && newData.child('estado').val().matches(/^(asignado|recogido|entregado)$/))))"
+        ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || ((auth != null && root.child('motoristas/' + auth.uid + '/activo').val() === true) && newData.child('pago').val() === data.child('pago').val() && ((data.child('estado').val() === 'disponible' && newData.child('estado').val() === 'asignado' && newData.child('motorista').val() === auth.uid) || (data.child('motorista').val() === auth.uid && newData.child('motorista').val() === auth.uid && newData.child('estado').val().matches(/^(asignado|recogido|entregado)$/))))",
+        "motoristaNombre": {
+          ".validate": "newData.isString() && newData.val().length < 60"
+        }
       }
     },
     "entregasPrivado": {
@@ -98,7 +104,7 @@
       "$k": {
         ".read": true,
         ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || (auth != null && root.child('entregas/' + $k + '/motorista').val() === auth.uid)",
-        ".validate": "newData.hasChildren(['lat', 'lng', 'ts'])"
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lng').isNumber()"
       }
     },
     "cupones": {

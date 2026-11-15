@@ -116,6 +116,7 @@
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
     const q = n => 'Q' + num(n).toFixed(2);
+    const urlSegura = u => { u = String(u || '').trim(); return /^https:\/\/[^\s"'<>`]+$/i.test(u) ? u : ''; };
     let toastT = null;
     function aviso(t) { const e = $('toast'); e.textContent = t; e.classList.add('ver'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('ver'), 4200); }
     function pantalla(html) { $('app').innerHTML = html; window.scrollTo(0, 0); }
@@ -302,8 +303,8 @@
         h += `<a class="btn azul" href="${TORRONS_MAPA}" target="_blank" rel="noopener">🗺️ Cómo llegar a Torrons</a>
               <button class="btn verde" onclick="recogido('${e.key}', this)">📦 Ya lo recogí · salir a entregar</button>`;
       } else {
-        if (p && p.mapa) h += `<a class="btn azul" href="${esc(p.mapa)}" target="_blank" rel="noopener">🗺️ Navegar a la casa del cliente</a>`;
-        if (p && p.wa) h += `<a class="btn wa" href="${esc(p.wa)}" target="_blank" rel="noopener">💬 WhatsApp al cliente</a>`;
+        if (p && urlSegura(p.mapa)) h += `<a class="btn azul" href="${esc(urlSegura(p.mapa))}" target="_blank" rel="noopener">🗺️ Navegar a la casa del cliente</a>`;
+        if (p && urlSegura(p.wa)) h += `<a class="btn wa" href="${esc(urlSegura(p.wa))}" target="_blank" rel="noopener">💬 WhatsApp al cliente</a>`;
         if (p && p.tel) h += `<a class="btn oscuro" href="tel:${esc(String(p.tel).replace(/\s/g, ''))}">📞 Llamar al cliente</a>`;
         h += `<button class="btn rojo" onclick="confirmarEntrega('${e.key}', ${cobrar})">✅ Entregado</button>`;
         h += `<div class="gps" id="gps-txt">${gpsKey === e.key ? '📡 Compartiendo tu ubicación con el cliente. Deja la app abierta durante el viaje.' : ''}</div>`;

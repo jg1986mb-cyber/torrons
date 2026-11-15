@@ -502,6 +502,24 @@
     CATALOG.forEach(c => { BASE_PRICES[c.key] = c.price; });
 
     let stock = {}, prices = {}, edits = {}, orders = [];
+    // Seguridad: los pedidos los escribe el público. Antes de mostrarlos, los números se fuerzan a número
+    // y los enlaces solo se aceptan si son https:// (evita que alguien meta código en la app).
+    function numSeguro(v) { const n = Number(v); return isFinite(n) ? n : ''; }
+    function urlSegura(u) { u = String(u || '').trim(); return /^https:\/\/[^\s"'<>`]+$/i.test(u) ? u : ''; }
+    function limpiarPedido(o) {
+      if (o.cliente && typeof o.cliente === 'object') {
+        const c = o.cliente;
+        if (c.lat !== undefined && c.lat !== '') c.lat = numSeguro(c.lat);
+        if (c.lng !== undefined && c.lng !== '') c.lng = numSeguro(c.lng);
+        if (c.lat === '' || c.lng === '') { c.lat = ''; c.lng = ''; }
+        ['km', 'envio'].forEach(k => { if (c[k] !== undefined && c[k] !== '') c[k] = numSeguro(c[k]); });
+        if (c.maps) c.maps = urlSegura(c.maps);
+      } else o.cliente = {};
+      if (o.pago && typeof o.pago === 'object' && o.pago.link) o.pago.link = urlSegura(o.pago.link);
+      if (o.subtotal !== undefined) o.subtotal = Number(o.subtotal) || 0;
+      if (o.cupon && typeof o.cupon === 'object') { o.cupon.pct = Number(o.cupon.pct) || 0; o.cupon.descuento = Number(o.cupon.descuento) || 0; }
+      return o;
+    }
     let listeners = [];
     let seguimiento = {};
     let cfgMoto = { modo: 'imprimir', llegadaMin: 10 }, prepCfg = {};
@@ -573,7 +591,7 @@
       firstLoad = true;
       listen(db.ref('pedidos').orderByChild('ts').limitToLast(5000), s => {
         const list = [];
-        s.forEach(c => { list.push(Object.assign({ key: c.key }, c.val())); });
+        s.forEach(c => { list.push(limpiarPedido(Object.assign({ key: c.key }, c.val()))); });
         orders = list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
         const nuevos = firstLoad ? [] : orders.filter(o => !knownKeys.has(o.key));
         orders.forEach(o => knownKeys.add(o.key));
@@ -1299,7 +1317,7 @@
         if (!tx.committed) return;
         await db.ref('entregasPrivado/' + key).set({
           cliente: c.nombre || '', tel: c.tel || '', direccion: dir, lat: Number(c.lat) || 0, lng: Number(c.lng) || 0,
-          mapa: c.lat ? `https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}` : (c.maps || ''),
+          mapa: c.lat !== '' && c.lat != null ? `https://www.google.com/maps/dir/?api=1&destination=${Number(c.lat)},${Number(c.lng)}` : urlSegura(c.maps),
           wa: tel ? 'https://wa.me/' + tel : '', productos: orderItems(o).filter(i => !i.extra).length
         });
         if (pagosCfg.url) fetch(pagosCfg.url + '/notificar').catch(() => {});
@@ -1335,7 +1353,7 @@
     function renderViajes() {
       const el = document.getElementById('viajes-curso'); if (!el) return;
       const act = Object.entries(entregas).filter(([k, e]) => ['disponible', 'asignado', 'recogido'].includes(e.estado));
-      el.innerHTML = act.length ? act.map(([k, e]) => `<div class="c-meta" style="display:flex;align-items:center;gap:8px;padding:4px 0;"><span style="flex:1">#${esc(e.codigo || k.slice(-5))} · ${EST_ENT[e.estado]}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''} · ${esc(e.zona || '')} · ${e.km ? e.km + ' km · ' : ''}${q(e.pago || e.cobrar)}</span><button class="btn small ghost" onclick="quitarViaje('${k}')">🗑️ Quitar</button></div>`).join('') : '<p class="hint">No hay viajes en curso.</p>';
+      el.innerHTML = act.length ? act.map(([k, e]) => `<div class="c-meta" style="display:flex;align-items:center;gap:8px;padding:4px 0;"><span style="flex:1">#${esc(e.codigo || k.slice(-5))} · ${EST_ENT[e.estado]}${e.motoristaNombre ? ' · ' + esc(e.motoristaNombre) : ''} · ${esc(e.zona || '')} · ${Number(e.km) > 0 ? Number(e.km) + ' km · ' : ''}${q(Number(e.pago) || Number(e.cobrar) || 0)}</span><button class="btn small ghost" onclick="quitarViaje('${k}')">🗑️ Quitar</button></div>`).join('') : '<p class="hint">No hay viajes en curso.</p>';
       actualizarMapaMotos(act);
     }
     let mapaMotos = null; const marcasMotos = {}; const subsUbic = {};
@@ -1356,7 +1374,7 @@
         if (subsUbic[k]) return;
         const ref = db.ref('ubicaciones/' + k);
         const cb = s => { const u = s.val(); if (!u) return; const e = entregas[k] || {};
-          const txt = `🛵 ${e.motoristaNombre || 'Motorista'} · #${e.codigo || ''}`;
+          const txt = esc(`🛵 ${e.motoristaNombre || 'Motorista'} · #${e.codigo || ''}`);
           if (!marcasMotos[k]) marcasMotos[k] = L.marker([u.lat, u.lng]).addTo(mapaMotos).bindTooltip(txt, { permanent: true });
           else marcasMotos[k].setLatLng([u.lat, u.lng]); };
         ref.on('value', cb); subsUbic[k] = () => ref.off('value', cb);

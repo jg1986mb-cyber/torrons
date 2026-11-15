@@ -3075,7 +3075,7 @@
         mpUbicRef = db.ref('ubicaciones/' + miPedido.key);
         mpUbicRef.on('value', s => {
           const v = s.val(); if (!v || !mpMapa) return;
-          if (!mpMoto) mpMoto = L.marker([v.lat, v.lng]).addTo(mpMapa).bindTooltip('🛵 ' + (mpSeg.motorista || 'Motorista'), { permanent: true });
+          if (!mpMoto) mpMoto = L.marker([v.lat, v.lng]).addTo(mpMapa).bindTooltip('🛵 ' + String(mpSeg.motorista || 'Motorista').replace(/[&<>"']/g, ch => '&#' + ch.charCodeAt(0) + ';').slice(0, 60), { permanent: true });
           else mpMoto.setLatLng([v.lat, v.lng]);
           mpMapa.setView([v.lat, v.lng], Math.max(mpMapa.getZoom(), 15));
           const n = document.getElementById('mp-mapa-nota'); if (n) n.textContent = '📍 Actualizado ' + new Date(v.ts).toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit' });
