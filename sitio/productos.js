@@ -59,6 +59,16 @@ const products = [
     offerExtras: true
   },
   {
+    id: 31,
+    name: "Hot-Dog Queso",
+    desc: "Salchicha con queso fundido gratinado.",
+    price: 18,
+    category: "hotdog",
+    emoji: "🌭",
+    image: "imagenes/hotdog-queso.jpg",
+    offerExtras: true
+  },
+  {
     id: 6,
     name: "Hot-Dog Completo",
     desc: "Salchicha, chucrut, tomate y mayonesa.",
