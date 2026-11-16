@@ -29,7 +29,7 @@ async function tokenGoogle(env) {
   const cab = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const cuerpo = b64url(JSON.stringify({
     iss: sa.client_email, aud: 'https://oauth2.googleapis.com/token', iat: ahora, exp: ahora + 3600,
-    scope: 'https://www.googleapis.com/auth/firebase.messaging https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email'
+    scope: 'https://www.googleapis.com/auth/firebase.messaging https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/cloud-platform'
   }));
   const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
   const der = Uint8Array.from(atob(pem), ch => ch.charCodeAt(0));
@@ -295,6 +295,44 @@ async function revisarPedidos(env) {
 }
 
 
+// ================= Borrar motorista de raíz (cuenta + datos) =================
+const ADMIN_UID = 'Ur4LfdU64YZstI1B8DQOUOZheIv1';
+const API_KEY = 'AIzaSyB5NHQqpKBUCiJH3GHfkLEmTd0Q69PPKK8'; // llave pública de la web (no es secreta)
+const ORIGENES = ['https://torronsgt.pages.dev', 'https://torronsguatemala.com', 'https://www.torronsguatemala.com'];
+function cors(req) {
+  const o = req.headers.get('Origin') || '';
+  const ok = ORIGENES.includes(o) || /^https:\/\/[a-z0-9-]+\.torronsgt\.pages\.dev$/.test(o);
+  return { 'Access-Control-Allow-Origin': ok ? o : ORIGENES[0], 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' };
+}
+const json = (req, d, status = 200) => new Response(JSON.stringify(d), { status, headers: Object.assign({ 'Content-Type': 'application/json' }, cors(req)) });
+async function esAdmin(req) {
+  const tok = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!tok) return false;
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + API_KEY, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok })
+  });
+  if (!r.ok) return false;
+  const d = await r.json();
+  return !!(d.users && d.users[0] && d.users[0].localId === ADMIN_UID);
+}
+async function borrarMotorista(req, env) {
+  if (!(await esAdmin(req))) return json(req, { ok: false, error: 'Solo el administrador puede hacer esto' }, 403);
+  let uid = '';
+  try { uid = String((await req.json()).uid || ''); } catch (e) {}
+  if (!/^[A-Za-z0-9]{10,40}$/.test(uid) || uid === ADMIN_UID) return json(req, { ok: false, error: 'Usuario no válido' }, 400);
+  const t = await tokenGoogle(env);
+  const proyecto = JSON.parse(env.FIREBASE_SA).project_id;
+  // 1) cuenta de acceso
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${proyecto}/accounts:delete`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify({ localId: uid })
+  });
+  let cuenta = r.ok ? 'borrada' : 'no-existia';
+  if (!r.ok) { const e = await r.text(); if (!/USER_NOT_FOUND/.test(e)) return json(req, { ok: false, error: 'Google no dejó borrar la cuenta: ' + e.slice(0, 200) }, 500); }
+  // 2) datos del motorista (las entregas ya hechas se quedan para tu historial)
+  await db(env, 'motoristas/' + uid + '.json', { method: 'DELETE' });
+  return json(req, { ok: true, cuenta });
+}
+
 const txt = (t, status = 200) => new Response(t, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
 export default {
@@ -305,6 +343,11 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (!env.FIREBASE_SA) return txt('Falta el secreto FIREBASE_SA', 500);
+    if (url.pathname === '/borrar-motorista') {
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
+      if (req.method !== 'POST') return json(req, { ok: false, error: 'Usa POST' }, 405);
+      try { return await borrarMotorista(req, env); } catch (e) { return json(req, { ok: false, error: e.message }, 500); }
+    }
     if (url.pathname === '/probar' && url.searchParams.get('app') === 'motoristas') {
       const ok = await enviarPush(env, {
         tipo: 'viaje', key: 'prueba-' + Date.now(),

@@ -62,6 +62,7 @@
     <div class="card" id="form-card">
       <h2>Déjanos tus datos</h2>
       <form id="form" onsubmit="enviar(event)">
+        <div style="position:absolute;left:-5000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true"><label>No llenar<input id="sitio_web" name="sitio_web" tabindex="-1" autocomplete="off"></label></div>
         <label for="nombre">Nombre completo *</label>
         <input id="nombre" required maxlength="70">
         <label for="correo">Correo electrónico * <span style="font-weight:500;color:#888">(será tu usuario en la app)</span></label>
@@ -118,19 +119,34 @@
       appId: "1:157355471209:web:6f25f061685317b3034df8"
     });
     const db = firebase.database();
-    const v = id => document.getElementById(id).value.trim();
+    const v = id => (document.getElementById(id) || { value: '' }).value.trim();
+    const INICIO = Date.now();
 
     function enviar(e) {
       e.preventDefault();
       const err = document.getElementById('err'); err.textContent = '';
       if (!document.getElementById('acepto').checked) { err.textContent = 'Debes aceptar las condiciones.'; return; }
       const btn = document.getElementById('btn'); btn.disabled = true; btn.textContent = 'Enviando…';
+      const fallo = t => { err.textContent = t; btn.disabled = false; btn.textContent = 'Enviar solicitud'; };
+      // Controles anti-spam y datos reales
+      if (v('sitio_web')) return fallo('No se pudo enviar.');                       // trampa para robots (campo oculto)
+      if (Date.now() - INICIO < 8000) return fallo('Revisa tus datos y vuelve a tocar "Enviar".');
+      try { const u = Number(localStorage.getItem('torronsSolicitud') || 0); if (Date.now() - u < 864e5) return fallo('Ya recibimos tu solicitud desde este teléfono. Te escribiremos pronto por WhatsApp.'); } catch (x) {}
+      const nombre = v('nombre').replace(/\s+/g, ' ');
+      const partes = nombre.split(' ').filter(p => /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü'.-]{2,}$/.test(p));
+      if (partes.length < 2 || partes.length !== nombre.split(' ').length) return fallo('Escribe tu nombre y apellido (solo letras).');
       const correo = v('correo').toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(correo)) { err.textContent = 'Escribe un correo válido, por ejemplo tunombre@gmail.com'; btn.disabled = false; btn.textContent = 'Enviar solicitud'; return; }
-      const datos = { nombre: v('nombre'), correo, tel: v('tel'), zona: v('zona'), moto: v('moto'), licencia: v('licencia'), ts: Date.now() };
+      if (!/^[a-z0-9._%+-]{3,}@[a-z0-9.-]+\.[a-z]{2,}$/.test(correo)) return fallo('Escribe un correo válido, por ejemplo tunombre@gmail.com');
+      let tel = v('tel').replace(/\D/g, ''); if (tel.length === 11 && tel.startsWith('502')) tel = tel.slice(3);
+      if (!/^[2-7]\d{7}$/.test(tel)) return fallo('Escribe tu número de teléfono de 8 dígitos (WhatsApp).');
+      for (const [id, nom] of [['zona', 'la zona donde vives'], ['moto', 'la marca y modelo de tu moto']]) {
+        if (v(id).replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ]/g, '').length < 3) return fallo('Escribe ' + nom + '.');
+      }
+      const datos = { nombre, correo, tel, zona: v('zona'), moto: v('moto'), licencia: v('licencia'), ts: Date.now() };
       if (v('disp')) datos.disponibilidad = v('disp');
       if (v('exp')) datos.experiencia = v('exp');
       db.ref('solicitudes').push(datos).then(() => {
+        try { localStorage.setItem('torronsSolicitud', String(Date.now())); } catch (x) {}
         document.getElementById('form-card').style.display = 'none';
         document.getElementById('ok').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });

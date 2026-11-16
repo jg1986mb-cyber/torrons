@@ -1431,7 +1431,7 @@
         let tel = String(m.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
         return `<div class="comanda" style="padding:12px;margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
-            <div><strong>${m.activo ? '🟢' : '⚪'} ${esc(m.nombre || '')}</strong> ${m.enLinea ? '<span class="etapa listo">En línea</span>' : ''}<br>
+            <div><strong>${m.activo ? '🟢' : '⚪'} ${m.nombre ? esc(m.nombre) : '<span style="color:#c62828">⚠️ Sin datos (no lo creaste tú)</span>'}</strong> ${m.enLinea ? '<span class="etapa listo">En línea</span>' : ''}<br>
               <span class="c-meta">${esc(m.correo || '')} · ${tel ? `<a href="https://wa.me/${tel}" target="_blank">💬 ${esc(m.tel)}</a>` : ''}</span><br>
               <span class="c-meta">${m.terminos ? '✅ Aceptó condiciones ' + new Date(m.terminos.ts).toLocaleDateString('es-GT') : '⏳ Aún no acepta condiciones'}</span></div>
             <div style="text-align:right;"><div class="c-meta">Esta semana: <strong>${mios.length} viajes</strong></div>
@@ -1439,7 +1439,8 @@
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
             <button class="btn small ${m.activo ? 'ghost' : ''}" onclick="activarMotorista('${uid}', ${!m.activo})">${m.activo ? 'Desactivar' : 'Activar'}</button>
-            <button class="btn small ghost" onclick="claveMotorista('${esc(m.correo || '')}')">Enviar cambio de contraseña</button>
+            ${m.correo ? `<button class="btn small ghost" onclick="claveMotorista('${esc(m.correo)}')">Enviar cambio de contraseña</button>` : ''}
+            <button class="btn small ghost" style="color:#c62828;border-color:#e57373" onclick="borrarMotorista('${uid}')">🗑️ Eliminar de raíz</button>
           </div>
         </div>`;
       }).join('');
@@ -1482,6 +1483,8 @@
       const correo = document.getElementById('m-correo').value.trim().toLowerCase(), clave = document.getElementById('m-clave').value;
       const msg = document.getElementById('m-msg');
       if (!nombre || !correo || clave.length < 6) { msg.textContent = 'Escribe nombre, correo y una contraseña de al menos 6 caracteres.'; return; }
+      const dud = dudasSolicitud({ nombre, tel, correo, zona: 'ok-ok', moto: 'ok-ok' });
+      if (dud.length) { msg.textContent = '⚠️ Revisa: ' + dud.join(', ') + '. Nombre y apellido, teléfono de 8 dígitos y correo real.'; return; }
       msg.textContent = 'Creando…';
       try {
         appSecundaria = appSecundaria || firebase.initializeApp(firebaseConfig, 'secundaria');
@@ -1494,6 +1497,41 @@
       } catch (e) {
         msg.textContent = e.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene cuenta.' : 'No se pudo crear: ' + e.message;
       }
+    }
+    const AVISOS_URL = 'https://torrons-avisos.analyzerog.workers.dev';
+    async function borrarMotorista(uid) {
+      const m = motoristas[uid] || {};
+      const nom = m.nombre || 'este registro sin datos';
+      const enViaje = Object.values(entregas).some(e => e.motorista === uid && ['asignado', 'recogido'].includes(e.estado));
+      if (enViaje) return toast('⚠️ Tiene un viaje en curso. Quítalo o espera a que lo entregue.');
+      const r = prompt(`Vas a ELIMINAR DE RAÍZ a ${nom}: se borra su cuenta y ya no podrá entrar.\nSus viajes entregados quedan en tu historial.\n\nEscribe ELIMINAR para confirmar:`);
+      if (r == null) return;
+      if (r.trim().toUpperCase() !== 'ELIMINAR') return toast('No se eliminó (no escribiste ELIMINAR)');
+      toast('Eliminando…');
+      try {
+        const tok = await auth.currentUser.getIdToken();
+        const res = await fetch(AVISOS_URL + '/borrar-motorista', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ uid }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || !d.ok) throw new Error(d.error || ('Error ' + res.status));
+        toast('🗑️ ' + nom + ' eliminado de raíz');
+      } catch (e) {
+        // Si el servidor falla, al menos se quitan sus datos y su acceso a la app
+        db.ref('motoristas/' + uid).remove().then(() => toast('Se quitaron sus datos y su acceso. La cuenta no se pudo borrar: ' + e.message)).catch(permError);
+      }
+    }
+    function borrarSolicitud(k) {
+      const x = solicitudes[k] || {};
+      if (!confirm(`¿Eliminar la solicitud de ${x.nombre || 'este registro'}? No se puede deshacer.`)) return;
+      db.ref('solicitudes/' + k).remove().then(() => toast('🗑️ Solicitud eliminada')).catch(permError);
+    }
+    // Señales de solicitud falsa o incompleta
+    function dudasSolicitud(x) {
+      const d = [], nom = String(x.nombre || '').trim(), tel = String(x.tel || '').replace(/\D/g, '');
+      if (nom.split(/\s+/).filter(p => /[a-záéíóúñü]{2,}/i.test(p)).length < 2) d.push('nombre incompleto');
+      if (!/^[2-7]\d{7}$/.test(tel.slice(-8)) || tel.length < 8) d.push('teléfono no válido');
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(x.correo || '') || /^.{1,2}@/.test(x.correo || '')) d.push('correo dudoso');
+      ['zona', 'moto'].forEach(c => { if (String(x[c] || '').replace(/[^a-z0-9áéíóúñ]/gi, '').length < 3) d.push(c + ' vacío'); });
+      return d;
     }
     function activarMotorista(uid, on) { db.ref('motoristas/' + uid + '/activo').set(!!on).then(() => toast(on ? 'Motorista activado' : 'Motorista desactivado')).catch(permError); }
     function claveMotorista(correo) {
@@ -1512,6 +1550,7 @@
         const wa = `https://wa.me/${tel}?text=${encodeURIComponent('Hola ' + String(x.nombre || '').split(' ')[0] + ', te escribimos de Café Torrons por tu solicitud de motorista.')}`;
         return `<div class="sol-card ${x.revisada ? 'rev' : 'nueva'}">
           <div class="sol-head"><strong>${esc(x.nombre || '—')}</strong><span class="sol-est">${x.revisada ? '✔ Revisada' : '🆕 Nueva'}</span></div>
+          ${dudasSolicitud(x).length ? `<div class="alerta-fraude" style="margin:4px 0 8px">⚠️ Parece falsa o incompleta: ${esc(dudasSolicitud(x).join(', '))}</div>` : ''}
           ${fila('📧', 'Correo', x.correo)}
           ${fila('📱', 'Teléfono', x.tel)}
           ${fila('📅', 'Enviada', x.ts ? new Date(x.ts).toLocaleString('es-GT') : '')}
@@ -1524,8 +1563,9 @@
             <a class="btn small wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>
             <a class="btn small ghost" href="tel:+${tel}">📞 Llamar</a>
             <button class="btn small ghost" onclick="copiarSolicitud('${k}')">📋 Copiar datos</button>
-            <button class="btn small" onclick="crearDesdeSolicitud('${k}')">👤 Crear usuario</button>
+            ${dudasSolicitud(x).length ? '' : `<button class="btn small" onclick="crearDesdeSolicitud('${k}')">👤 Crear usuario</button>`}
             ${x.revisada ? '' : `<button class="btn small ghost" onclick="db.ref('solicitudes/${k}/revisada').set(true)">✔ Marcar revisada</button>`}
+            <button class="btn small ghost" style="color:#c62828;border-color:#e57373" onclick="borrarSolicitud('${k}')">🗑️ Eliminar</button>
           </div>
         </div>`; }).join('') : '<p class="hint">Aún no hay solicitudes.</p>';
     }

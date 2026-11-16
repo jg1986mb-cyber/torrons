@@ -63,10 +63,10 @@
         ".read": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || auth.uid === $uid",
         ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
         "terminos": {
-          ".write": "auth != null && auth.uid === $uid"
+          ".write": "auth != null && auth.uid === $uid && root.child('motoristas/' + $uid + '/nombre').exists()"
         },
         "enLinea": {
-          ".write": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && root.child('motoristas/' + $uid + '/nombre').exists()",
           ".validate": "newData.isBoolean()"
         }
       }
@@ -75,7 +75,7 @@
       ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
       "$id": {
         ".write": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') || !data.exists()",
-        ".validate": "newData.hasChildren(['nombre', 'tel', 'ts']) && newData.child('nombre').isString() && newData.child('nombre').val().length < 80 && newData.child('tel').isString() && newData.child('tel').val().length < 30",
+        ".validate": "newData.hasChildren(['nombre', 'tel', 'ts']) && newData.child('nombre').isString() && newData.child('nombre').val().length < 80 && newData.child('tel').isString() && newData.child('tel').val().length < 30 && (data.exists() || (newData.hasChildren(['correo', 'zona', 'moto']) && newData.child('nombre').val().length >= 5 && newData.child('nombre').val().contains(' ') && newData.child('tel').val().matches(/^[2-7][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/) && newData.child('correo').isString() && newData.child('correo').val().matches(/^[^@ ]+@[^@ ]+[.][a-z][a-z]+$/) && newData.child('zona').isString() && newData.child('zona').val().length >= 3 && newData.child('moto').isString() && newData.child('moto').val().length >= 3))",
         "$campo": {
           ".validate": "$campo.matches(/^(nombre|correo|tel|zona|moto|licencia|experiencia|disponibilidad|ts|revisada)$/) && (!newData.isString() || newData.val().length < 400)"
         }
