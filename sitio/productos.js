@@ -106,7 +106,7 @@ const products = [
     price: 20,
     category: "otros",
     emoji: "🥖",
-    image: "imagenes/choripan.jpg",
+    image: "imagenes/choripan-v2.jpg",
     offerExtras: true
   },
   {
