@@ -1378,7 +1378,7 @@
     function quitarViaje(key) {
       const e = entregas[key]; if (!e) return;
       const enCurso = e.estado === 'asignado' || e.estado === 'recogido';
-      if (!confirm(enCurso ? `El viaje #${e.codigo || ''} ya lo tiene ${e.motoristaNombre || 'un motorista'}. ¿Cancelarlo de todas formas? Avísale por WhatsApp.` : `¿Quitar el viaje #${e.codigo || ''} de la lista de los motoristas?`)) return;
+      if (!dobleConfirmar(enCurso ? `El viaje #${e.codigo || ''} ya lo tiene ${e.motoristaNombre || 'un motorista'}. ¿Cancelarlo de todas formas? Avísale por WhatsApp.` : `¿Quitar el viaje #${e.codigo || ''} de la lista de los motoristas?`)) return;
       db.ref('entregas/' + key).update({ estado: 'cancelado', canceladoTs: Date.now() }).then(() => { db.ref('ubicaciones/' + key).remove().catch(() => {}); toast('🗑️ Viaje quitado'); }).catch(permError);
     }
     // Los viajes que nadie acepta en 10 minutos se quitan solos
@@ -1498,13 +1498,19 @@
         msg.textContent = e.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene cuenta.' : 'No se pudo crear: ' + e.message;
       }
     }
+    // Doble confirmación para todo lo que se elimina
+    function dobleConfirmar(msg) {
+      if (!confirm(msg)) return false;
+      return confirm('⚠️ SEGUNDA CONFIRMACIÓN\n\n¿Estás completamente seguro? Esto no se puede deshacer.');
+    }
     const AVISOS_URL = 'https://torrons-avisos.analyzerog.workers.dev';
     async function borrarMotorista(uid) {
       const m = motoristas[uid] || {};
       const nom = m.nombre || 'este registro sin datos';
       const enViaje = Object.values(entregas).some(e => e.motorista === uid && ['asignado', 'recogido'].includes(e.estado));
       if (enViaje) return toast('⚠️ Tiene un viaje en curso. Quítalo o espera a que lo entregue.');
-      const r = prompt(`Vas a ELIMINAR DE RAÍZ a ${nom}: se borra su cuenta y ya no podrá entrar.\nSus viajes entregados quedan en tu historial.\n\nEscribe ELIMINAR para confirmar:`);
+      if (!confirm(`¿Eliminar de raíz a ${nom}? Se borra su cuenta y ya no podrá entrar a la app.`)) return;
+      const r = prompt(`SEGUNDA CONFIRMACIÓN · Vas a ELIMINAR DE RAÍZ a ${nom}: se borra su cuenta y ya no podrá entrar.\nSus viajes entregados quedan en tu historial.\n\nEscribe ELIMINAR para confirmar:`);
       if (r == null) return;
       if (r.trim().toUpperCase() !== 'ELIMINAR') return toast('No se eliminó (no escribiste ELIMINAR)');
       toast('Eliminando…');
@@ -1521,7 +1527,7 @@
     }
     function borrarSolicitud(k) {
       const x = solicitudes[k] || {};
-      if (!confirm(`¿Eliminar la solicitud de ${x.nombre || 'este registro'}? No se puede deshacer.`)) return;
+      if (!dobleConfirmar(`¿Eliminar la solicitud de ${x.nombre || 'este registro'}?`)) return;
       db.ref('solicitudes/' + k).remove().then(() => toast('🗑️ Solicitud eliminada')).catch(permError);
     }
     // Señales de solicitud falsa o incompleta
@@ -1900,7 +1906,7 @@
       }).join('');
     }
     async function cupAnular(code) {
-      if (!confirm('¿Anular el cupón ' + code + '? El cliente ya no podrá usarlo.')) return;
+      if (!dobleConfirmar('¿Anular el cupón ' + code + '? El cliente ya no podrá usarlo.')) return;
       const upd = {}; upd['cupones/' + code] = null; upd['cuponesInfo/' + code] = null;
       try { await db.ref().update(upd); delete cupones[code]; delete cuponesInfo[code]; renderCupones(); renderOrders(); toast('Cupón anulado'); }
       catch (e) { toast('No se pudo anular: ' + e.message); }
