@@ -466,6 +466,17 @@
           </div>
           <p class="hint" id="e-ejemplo" style="margin-top:8px;"></p>
           <button class="btn" onclick="guardarTarifa()">Guardar tarifa</button>
+
+          <h3 style="margin:18px 0 6px;">🗺️ Consultar tarifa por ubicación</h3>
+          <p class="hint">Pega un link de Google Maps o WhatsApp, unas coordenadas o escribe una dirección. También puedes tocar el mapa o arrastrar el pin.</p>
+          <div style="display:flex;gap:6px;">
+            <input id="cot-q" class="txt" style="flex:1;min-width:0" placeholder="Link, dirección o 14.60, -90.52" onkeydown="if(event.key==='Enter')cotBuscar()">
+            <button class="btn" onclick="cotBuscar()">🔎 Calcular</button>
+          </div>
+          <div id="cot-opciones"></div>
+          <div id="cot-mapa" style="height:320px;border-radius:12px;margin-top:10px;border:1.5px solid var(--border);"></div>
+          <div id="cot-res" class="hint" style="margin-top:10px;">Toca el mapa para ver cuánto cobrar de envío.</div>
+          <button class="btn small ghost" style="margin-top:6px;" onclick="cotMiUbicacion()">📍 Usar mi ubicación actual</button>
         </div>
       </div>
 
@@ -612,6 +623,7 @@
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
       document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
       if (name === 'cupones') cupMostrarLock();
+      if (document.getElementById('panel-' + name) && document.getElementById('panel-' + name).contains(document.getElementById('cot-mapa'))) cotIniciar();
     }
 
     // ---------- Precios y stock ----------
@@ -1597,6 +1609,7 @@
       const set = (i, v) => { const e = document.getElementById(i); if (e && document.activeElement !== e) e.value = v; };
       set('e-base', tarifa.base); set('e-km', tarifa.porKm); set('e-min', tarifa.minimo); set('e-max', tarifa.maxKm);
       const ej = k => Math.max(tarifa.minimo, Math.round(tarifa.base + tarifa.porKm * k));
+      if (cotCirculo) cotCirculo.setRadius(tarifa.maxKm * 1000 / 1.35);
       const p = document.getElementById('e-ejemplo'); if (p) p.textContent = `Ejemplos: 2 km → Q${ej(2)} · 5 km → Q${ej(5)} · 10 km → Q${ej(10)}`;
     }
     const PREP_ID = { '1': 4, '11': 14, '13': 12, '12': 11, '28': 10, '9': 8, '10': 6, combo_papas: 10, combo_cafe: 4 };
@@ -1626,6 +1639,91 @@
         db.ref('config/motoristas').update({ modo: document.getElementById('mt-modo').value, llegadaMin: Math.max(0, Math.min(40, Number(document.getElementById('mt-llegada').value) || 10)) }),
         db.ref('config/prep').set(prep)
       ]).then(() => toast('✅ Tiempos guardados')).catch(permError);
+    }
+
+    // ---------- Cotizador de envío con mapa ----------
+    const COT_TORRONS = [14.6495488, -90.5178091];
+    let cotMapa = null, cotPin = null, cotCirculo = null, cotUlt = null;
+    async function cotIniciar() {
+      if (cotMapa) { setTimeout(() => cotMapa.invalidateSize(), 50); return; }
+      try { await cargarLeaflet(); } catch (e) { document.getElementById('cot-res').textContent = 'No se pudo cargar el mapa.'; return; }
+      const el = document.getElementById('cot-mapa'); if (!el) return;
+      cotMapa = L.map(el).setView(COT_TORRONS, 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(cotMapa);
+      L.marker(COT_TORRONS, { title: 'Café Torrons' }).addTo(cotMapa).bindTooltip('🏪 Torrons', { permanent: true, direction: 'top', offset: [0, -10] });
+      cotCirculo = L.circle(COT_TORRONS, { radius: tarifa.maxKm * 1000 / 1.35, color: '#c41e3a', weight: 1.5, fillOpacity: 0.05, dashArray: '6 6' }).addTo(cotMapa);
+      cotMapa.on('click', e => cotPunto(e.latlng.lat, e.latlng.lng));
+    }
+    function cotLeerCoords(t) {
+      t = decodeURIComponent(String(t || ''));
+      const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /[?&](?:q|query|ll|destination|daddr|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /(-?1[3-5]\.\d{3,})\s*,\s*(-?9[01]\.\d{3,})/, /^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/];
+      for (const p of pats) { const m = t.match(p); if (m) { const a = Number(m[1]), b = Number(m[2]); if (a > 13 && a < 18 && b < -88 && b > -93) return [a, b]; } }
+      return null;
+    }
+    async function cotBuscar() {
+      await cotIniciar();
+      const q = document.getElementById('cot-q').value.trim(), op = document.getElementById('cot-opciones');
+      op.innerHTML = '';
+      if (!q) return toast('Escribe un link, coordenadas o dirección');
+      const c = cotLeerCoords(q);
+      if (c) return cotPunto(c[0], c[1], true);
+      if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(q)) {
+        document.getElementById('cot-res').textContent = '';
+        op.innerHTML = '<p class="hint" style="color:#c62828">Ese es un link corto: ábrelo, y cuando cargue el mapa copia el link largo de la barra (o mantén presionado el punto para copiar las coordenadas) y pégalo aquí.</p>';
+        return;
+      }
+      document.getElementById('cot-res').textContent = '⏳ Buscando dirección…';
+      try {
+        const qq = /guatemala/i.test(q) ? q : q + ', Guatemala';
+        const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&countrycodes=gt&limit=5&accept-language=es&q=' + encodeURIComponent(qq));
+        const l = await r.json();
+        if (!l.length) { document.getElementById('cot-res').textContent = 'No encontré esa dirección. Prueba con colonia y zona, o toca el lugar en el mapa.'; return; }
+        if (l.length === 1) return cotPunto(Number(l[0].lat), Number(l[0].lon), true);
+        window._cotOps = l;
+        op.innerHTML = '<p class="hint" style="margin-top:8px;">Elige la correcta:</p>' + l.map((x, i) => `<button class="btn small ghost" style="display:block;width:100%;text-align:left;margin-top:4px;" onclick="cotElegir(${i})">📍 ${esc(String(x.display_name).split(',').slice(0, 4).join(','))}</button>`).join('');
+        document.getElementById('cot-res').textContent = '';
+      } catch (e) { document.getElementById('cot-res').textContent = 'No se pudo buscar la dirección. Toca el lugar en el mapa.'; }
+    }
+    function cotElegir(i) { const x = (window._cotOps || [])[i]; if (!x) return; document.getElementById('cot-opciones').innerHTML = ''; cotPunto(Number(x.lat), Number(x.lon), true); }
+    function cotMiUbicacion() {
+      if (!navigator.geolocation) return toast('Este teléfono no da la ubicación');
+      navigator.geolocation.getCurrentPosition(p => { cotIniciar().then(() => cotPunto(p.coords.latitude, p.coords.longitude, true)); }, () => toast('No se pudo leer tu ubicación'), { enableHighAccuracy: true, timeout: 15000 });
+    }
+    async function cotPunto(lat, lng, centrar) {
+      await cotIniciar();
+      if (!cotPin) { cotPin = L.marker([lat, lng], { draggable: true }).addTo(cotMapa); cotPin.on('dragend', () => { const p = cotPin.getLatLng(); cotPunto(p.lat, p.lng); }); }
+      else cotPin.setLatLng([lat, lng]);
+      if (centrar) cotMapa.fitBounds(L.latLngBounds([COT_TORRONS, [lat, lng]]).pad(0.25));
+      const res = document.getElementById('cot-res');
+      res.innerHTML = '⏳ Calculando por calle…';
+      const recta = kmRecta(lat, lng);
+      let km = null, min = null, fuente = 'aprox';
+      try {
+        if (pagosCfg.url) { const d = await (await fetch(`${pagosCfg.url}/distancia?lat=${lat}&lng=${lng}`)).json(); if (d && d.km) { km = d.km; min = d.min; fuente = d.fuente || 'ruta'; } }
+      } catch (e) {}
+      if (km == null) km = Math.round(recta * 1.35 * 10) / 10;
+      const monto = Math.max(tarifa.minimo, Math.round(tarifa.base + tarifa.porKm * km));
+      const fuera = km > tarifa.maxKm;
+      const link = `https://www.google.com/maps/dir/?api=1&origin=${COT_TORRONS[0]},${COT_TORRONS[1]}&destination=${lat.toFixed(6)},${lng.toFixed(6)}`;
+      cotUlt = { lat, lng, km, min, monto, fuera, link };
+      res.innerHTML = fuera
+        ? `<div class="alerta-fraude" style="margin:0">🚫 <strong>${km} km por calle</strong>: fuera de cobertura (máximo ${tarifa.maxKm} km). Ofrece retiro en local.</div>`
+        : `<div style="background:#e8f5e9;border:2px solid #2e7d32;border-radius:12px;padding:10px 12px;color:#1b5e20;">
+             <div style="font-size:1.6rem;font-weight:800;">Envío Q${monto}</div>
+             <div>📏 ${km} km por calle${min ? ' · 🕒 ~' + min + ' min en moto' : ''}${fuente !== 'ruta' ? ' (aproximado)' : ''} · línea recta ${recta.toFixed(1)} km</div>
+             <div class="hint" style="margin-top:4px;">Q${tarifa.base} base + ${km} km × Q${tarifa.porKm}${monto === tarifa.minimo ? ' → se cobra el mínimo' : ''}</div>
+           </div>`;
+      res.innerHTML += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn small ghost" onclick="cotCopiar()">📋 Copiar para WhatsApp</button>
+          <a class="btn small ghost" href="${link}" target="_blank" rel="noopener">🗺️ Ver ruta en Google Maps</a></div>`;
+    }
+    function cotCopiar() {
+      if (!cotUlt) return;
+      const t = cotUlt.fuera
+        ? `Hola 👋 Tu ubicación está a ${cotUlt.km} km de Café Torrons y queda fuera de nuestra zona de envío. Puedes pasar a recoger tu pedido a 1a av. A 1-00, zona 2. ¡Te esperamos!`
+        : `Hola 👋 El envío a tu ubicación (${cotUlt.km} km) cuesta *Q${cotUlt.monto}*.${cotUlt.min ? ' Llega en unos ' + cotUlt.min + ' min después de que sale de Torrons.' : ''} Pide en torronsguatemala.com 🛵`;
+      const ok = () => toast('📋 Copiado');
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok).catch(() => copiarRespaldo(t, ok)); else copiarRespaldo(t, ok);
     }
     function guardarTarifa() {
       const v = { base: Number(document.getElementById('e-base').value) || 15, porKm: Number(document.getElementById('e-km').value) || 4, minimo: Number(document.getElementById('e-min').value) || 20, maxKm: Number(document.getElementById('e-max').value) || 12 };
