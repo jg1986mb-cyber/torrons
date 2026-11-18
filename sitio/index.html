@@ -3480,6 +3480,9 @@
     .gu-pasos li::before { content: counter(p); position: absolute; left: 10px; top: 9px; width: 26px; height: 26px; border-radius: 50%; background: #e86a17; color: #fff; font-weight: 800; font-size: .85rem; display: flex; align-items: center; justify-content: center; }
     .gu-pasos li.hablando { background: #fff0e0; box-shadow: inset 4px 0 0 #e86a17; }
     .gu-accion { width: 100%; }
+    .gu-img { display: block; width: 100%; max-width: 250px; margin: 10px auto 2px; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.18); border: 1px solid #eadfd3; cursor: zoom-in; background: #f3ece5; }
+    .gu-zoom { position: fixed; inset: 0; z-index: 980; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
+    .gu-zoom img { max-width: 100%; max-height: 100%; border-radius: 14px; }
     .gu-op.dest { border-color: #e86a17; background: linear-gradient(135deg, #fff1e3, #ffe2c9); }
     .gc-q { display: flex; gap: 6px; margin-bottom: 8px; }
     .gc-q input { flex: 1; min-width: 0; border: 1.5px solid #e5ddd5; border-radius: 12px; padding: 11px 12px; font-family: inherit; font-size: .92rem; }
@@ -3509,23 +3512,23 @@
   <script>
   (function () {
     const GUIAS = [
-      { id: 'pedido', ico: '🛒', t: 'Cómo hacer un pedido',
+      { id: 'pedido', imgs: {"0": "pedido1", "1": "pedido2", "2": "pedido3", "3": "pedido4", "4": "pedido5"}, ico: '🛒', t: 'Cómo hacer un pedido',
         pasos: ['En el menú de arriba toca <b>Menú</b> y busca tu plato. Puedes filtrar por <b>Churrascos, Hot-Dogs, Papas, Bebidas</b>…', 'Toca <b>+ Agregar</b> en cada producto que quieras.', 'Toca el botón <b>🛒 Carrito</b> (arriba a la derecha) para revisar tu pedido.', 'Toca <b>➡️ Continuar con el pedido</b>, llena tus datos y elige cómo lo recibes.', 'Toca <b>✅ Confirmar pedido</b>. Si pagas con tarjeta, se abre el botón <b>💳 Pagar ahora</b>.'],
         voz: 'Hacer tu pedido es muy fácil. Primero, en el menú de arriba toca Menú y busca tu plato favorito; puedes filtrar por churrascos, hot dogs, papas o bebidas. Toca el botón Agregar en cada producto que quieras. Luego toca el botón Carrito, arriba a la derecha, para revisar tu pedido. Después toca Continuar con el pedido, llena tus datos y elige si lo quieres a domicilio o si pasas a recogerlo. Por último toca Confirmar pedido. Si pagas con tarjeta, aparecerá el botón Pagar ahora. ¡Y listo! Tu comanda llega directo a nuestra cocina.',
         accion: ['🍔 Ir al menú', 'guiaIr("#menu")'] },
-      { id: 'combo', ico: '⭐', t: 'Cómo armar un combo',
+      { id: 'combo', imgs: {"0": "pedido2", "3": "combo1", "4": "combo2"}, ico: '⭐', t: 'Cómo armar un combo',
         pasos: ['Toca <b>+ Agregar</b> en un churrasco, hot-dog u otro plato que permita combo.', 'Se abre la ventana <b>⭐ Armar combo</b>.', 'Marca <b>🍟 Papas</b> si las quieres (opcional).', 'Elige <b>un líquido en oferta</b>: Coca-Cola, agua, soda o café.', 'Toca <b>🛒 Agregar combo a la canasta</b>. Verás el subtotal del combo antes de agregarlo.'],
         voz: 'Para armar un combo, toca Agregar en un churrasco, un hot dog u otro plato que tenga combo. Se abrirá la ventana Armar combo. Ahí puedes sumar papas, si las quieres, y elegir un líquido en oferta: Coca Cola, agua, soda o un rico café americano. Abajo verás el subtotal de tu combo. Cuando esté a tu gusto, toca Agregar combo a la canasta. Así de sencillo.',
         accion: ['🍔 Ver platos', 'guiaIr("#menu")'] },
-      { id: 'crea', ico: '🛠️', t: 'Cómo hacer mi Crea tu Torrons',
+      { id: 'crea', imgs: {"0": "crea1", "4": "crea2"}, ico: '🛠️', t: 'Cómo hacer mi Crea tu Torrons',
         pasos: ['En el menú de arriba toca <b>🛠️ Crea tu Torrons</b>.', '<b>Paso 1:</b> elige tu base (pan o papas).', '<b>Paso 2:</b> toca los ingredientes que quieras agregar.', 'Abajo ves la lista de lo que elegiste y el subtotal.', 'Toca <b>🛒 Guardar en carrito</b>.'],
         voz: 'Con Crea tu Torrons armas tu sándwich o tus papas a tu manera. En el menú de arriba toca Crea tu Torrons. En el paso uno elige tu base. En el paso dos toca los ingredientes que quieras agregar. Abajo verás la lista de lo que escogiste y el subtotal. Cuando esté perfecto, toca Guardar en carrito. ¡Tu creación queda lista para pedir!',
         accion: ['🛠️ Ir a Crea tu Torrons', 'guiaIr("#crea-torrons")'] },
-      { id: 'carrito', ico: '🧺', t: 'Guía del carrito y tus datos',
+      { id: 'carrito', imgs: {"0": "carrito1", "1": "carrito2", "3": "pedido4", "4": "carrito3", "5": "carrito4"}, ico: '🧺', t: 'Guía del carrito y tus datos',
         pasos: ['Toca <b>🛒 Carrito</b>. Arriba eliges cómo lo recibes: <b>Delivery, Retiro o Contra entrega</b>.', 'Si tienes un <b>cupón</b>, escríbelo en la casilla de cupón.', 'Usa <b>+ / −</b> para cambiar cantidades y la nota para pedidos especiales.', 'Toca <b>➡️ Continuar con el pedido</b>.', 'Escribe tu <b>nombre</b> y <b>número de contacto</b>; el correo es opcional (para tu comprobante).', 'Si es a domicilio: calle y número, colonia, zona y marca tu <b>📍 ubicación</b> en el mapa.'],
         voz: 'En el carrito revisas todo antes de pedir. Toca el botón Carrito. Arriba eliges cómo lo quieres recibir: delivery, retiro en el local o envío contra entrega. Si tienes un cupón, escríbelo en la casilla de cupón. Con los botones de más y menos cambias las cantidades, y puedes dejar una nota para algo especial. Luego toca Continuar con el pedido. Escribe tu nombre completo y tu número de contacto; el correo es opcional y sirve para enviarte el comprobante. Si es a domicilio, escribe tu calle y número, la colonia, la zona, y marca tu ubicación exacta en el mapa.',
         accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
-      { id: 'delivery', ico: '🛵', t: 'Cómo pedir delivery',
+      { id: 'delivery', imgs: {"0": "delivery1", "2": "carrito4"}, ico: '🛵', t: 'Cómo pedir delivery',
         pasos: ['En el carrito elige <b>🚚 Delivery</b> (o <b>🛵 Contra entrega</b> si pagas el envío en efectivo al motorista).', 'Toca <b>➡️ Continuar con el pedido</b> y escribe tu dirección.', 'Toca <b>📍 Usar mi ubicación actual</b> o toca el mapa donde quieres recibirlo.', 'El costo del envío se calcula solo según la distancia.', 'Confirma tu pedido. Uno de nuestros motoristas te lo lleva.'],
         voz: 'Para pedir a domicilio, en el carrito elige Delivery. Si prefieres pagar el envío en efectivo al motorista, elige Contra entrega. Toca Continuar con el pedido y escribe tu dirección. Después toca Usar mi ubicación actual, o toca el mapa en el punto exacto donde quieres recibirlo. El costo del envío se calcula solito, según la distancia. Confirma tu pedido, y uno de nuestros motoristas te lo lleva calientito.',
         accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
@@ -3533,39 +3536,39 @@
         pasos: [],
         voz: 'Para saber cuánto te sale el envío, escribe tu dirección o pega el link de Google Maps. También puedes tocar Usar mi ubicación, o tocar el mapa en el lugar donde quieres recibir tu pedido. Al instante verás el precio aproximado del envío.',
         accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
-      { id: 'retiro', ico: '🏪', t: 'Cómo recoger en el local',
+      { id: 'retiro', imgs: {"0": "retiro1", "2": "estado0"}, ico: '🏪', t: 'Cómo recoger en el local',
         pasos: ['En el carrito elige <b>🏪 Retiro</b>. No pagas envío.', 'Llena tu nombre y número y confirma tu pedido.', 'En <b>🧾 Mis pedidos</b> verás cuando esté <b>Listo</b>.', 'Pasa por él a <b>1a avenida A 1-00, zona 2, El Sauce</b>.'],
         voz: 'Si prefieres pasar por tu pedido, en el carrito elige Retiro. Así no pagas envío. Llena tu nombre y tu número, y confirma el pedido. En Mis pedidos verás cuando esté listo. Te esperamos en primera avenida A, uno guion cero cero, zona dos, El Sauce.',
         accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
-      { id: 'pagar', ico: '💳', t: 'Cómo pagar con tarjeta',
+      { id: 'pagar', imgs: {"0": "pagar1"}, ico: '💳', t: 'Cómo pagar con tarjeta',
         pasos: ['Después de <b>✅ Confirmar pedido</b> aparece el botón <b>💳 Pagar ahora (Paggo)</b>.', 'Paga con tu tarjeta <b>Visa</b> o <b>Mastercard</b> en la página segura de Paggo.', 'Tienes <b>5 minutos</b> para pagar; si no, el pedido se cancela solo.', 'Cuando se aprueba, tu comanda pasa sola a la cocina.'],
         voz: 'El pago es con tarjeta Visa o Mastercard. Después de confirmar tu pedido aparece el botón Pagar ahora. Ahí pagas en la página segura de Paggo. Ojo: tienes cinco minutos para pagar; si no, el pedido se cancela solo. En cuanto el pago se aprueba, tu comanda pasa directo a la cocina.',
         accion: ['🧾 Ver mis pedidos', 'guiaCerrar(); abrirMiPedido()'] },
-      { id: 'anular-sin-pago', ico: '↩️', t: 'Cómo anular un pedido no pagado',
+      { id: 'anular-sin-pago', imgs: {"0": "estado0", "1": "anular1"}, ico: '↩️', t: 'Cómo anular un pedido no pagado',
         pasos: ['Toca <b>🧾 Mis pedidos</b> en el menú de arriba (o el botón de tu pedido abajo a la izquierda).', 'Toca <b>Cancelar mi pedido</b> y confirma.', 'Como no lo pagaste, se cancela en un momento, sin ningún cobro.', 'Si no pagas en 5 minutos, también se cancela solo.'],
         voz: 'Si todavía no pagaste y quieres anular tu pedido, toca Mis pedidos en el menú de arriba, o el botón de tu pedido abajo a la izquierda. Luego toca Cancelar mi pedido y confirma. Como no lo pagaste, se cancela en un momento y no se cobra nada. Y si no pagas en cinco minutos, el pedido también se cancela solo.',
         accion: ['🧾 Ver mis pedidos', 'guiaCerrar(); abrirMiPedido()'] },
-      { id: 'anular-pagado', ico: '💸', t: 'Cómo anular un pedido pagado',
+      { id: 'anular-pagado', imgs: {"0": "estado0", "1": "anular2"}, ico: '💸', t: 'Cómo anular un pedido pagado',
         pasos: ['Toca <b>🧾 Mis pedidos</b>.', 'Toca <b>Cancelar mi pedido</b> y confirma.', 'Solo se puede <b>antes de que empecemos a prepararlo</b>.', 'Te devolvemos el <b>total</b> por Paggo; puede tardar unos días en verse en tu tarjeta.', 'Si ya estaba en preparación, escríbenos en <b>💬 Ayuda</b>.'],
         voz: 'Si ya pagaste y necesitas anular tu pedido, toca Mis pedidos y luego Cancelar mi pedido. Esto solo se puede antes de que empecemos a prepararlo. Te devolvemos el total de tu pago por medio de Paggo; puede tardar unos días en reflejarse en tu tarjeta. Si tu pedido ya estaba en preparación, escríbenos en Ayuda y con gusto te atendemos.',
         accion: ['🧾 Ver mis pedidos', 'guiaCerrar(); abrirMiPedido()'] },
-      { id: 'estado', ico: '📍', t: 'Cómo ver el estado de mi pedido',
+      { id: 'estado', imgs: {"0": "estado0", "1": "estado1"}, ico: '📍', t: 'Cómo ver el estado de mi pedido',
         pasos: ['Toca <b>🧾 Mis pedidos</b> en el menú de arriba.', 'Verás cada etapa: <b>Recibido → Preparando → Listo → En camino → Entregado</b>.', 'Cuando va <b>En camino</b>, ves al motorista en el <b>mapa en tiempo real</b>.', 'Abajo están tus pedidos anteriores y el botón <b>🔁 Volver a pedir</b>.'],
         voz: 'Para saber cómo va tu pedido, toca Mis pedidos en el menú de arriba. Ahí ves cada etapa: recibido, preparando, listo, en camino y entregado. Cuando va en camino, puedes ver al motorista en el mapa, en tiempo real. Más abajo están tus pedidos anteriores, con el botón Volver a pedir.',
         accion: ['🧾 Ver mis pedidos', 'guiaCerrar(); abrirMiPedido()'] },
-      { id: 'tiempo', ico: '⏱️', t: '¿Cuánto se demora en llegar?',
+      { id: 'tiempo', imgs: {"2": "estado1"}, ico: '⏱️', t: '¿Cuánto se demora en llegar?',
         pasos: ['La cocina tarda de <b>5 a 15 minutos</b> según el plato (un poco más si pides varios).', 'Con delivery súmale el viaje del motorista: normalmente <b>15 a 30 minutos</b> según la distancia.', 'Si recoges en el local, en <b>🧾 Mis pedidos</b> te avisamos cuando esté <b>Listo</b>.', 'Con tarjeta, el tiempo empieza cuando se aprueba tu pago.'],
         voz: 'Preparar tu pedido nos toma entre cinco y quince minutos, según el plato; un poquito más si pides varios. Si es a domicilio, súmale el viaje del motorista, que normalmente es de quince a treinta minutos según la distancia. Si pasas a recogerlo, en Mis pedidos te avisamos cuando esté listo. Y si pagas con tarjeta, el tiempo empieza a contar cuando se aprueba tu pago.',
         accion: ['🧾 Ver mis pedidos', 'guiaCerrar(); abrirMiPedido()'] },
-      { id: 'cupon', ico: '🎟️', t: 'Cómo usar un cupón',
+      { id: 'cupon', imgs: {"0": "pedido3", "1": "cupon1"}, ico: '🎟️', t: 'Cómo usar un cupón',
         pasos: ['Toca <b>🛒 Carrito</b>.', 'Escribe o pega tu código (ej. <b>TOR-XXXXXX</b>) en la casilla de cupón y aplícalo.', 'Usa el <b>mismo número de teléfono</b> al que se te dio el cupón.', 'Los cupones <b>no son acumulables</b> con productos en oferta.'],
         voz: 'Si tienes un cupón de descuento, toca Carrito y escribe o pega tu código en la casilla de cupón. Al confirmar, usa el mismo número de teléfono al que te dimos el cupón. Recuerda que los cupones no se acumulan con los productos que ya están en oferta.',
         accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
-      { id: 'reclamo', ico: '📣', t: 'Cómo poner un reclamo',
+      { id: 'reclamo', imgs: {"0": "reclamo1", "1": "reclamo2"}, ico: '📣', t: 'Cómo poner un reclamo',
         pasos: ['Toca el botón <b>💬 ¿Necesitas ayuda?</b> (abajo a la derecha).', 'Escribe tu nombre y cuéntanos qué pasó.', 'Si puedes, incluye tu <b>número de pedido</b> (lo ves en Mis pedidos).', 'Te respondemos en ese mismo chat lo antes posible.'],
         voz: 'Si algo no salió bien, queremos saberlo. Toca el botón Necesitas ayuda, abajo a la derecha. Escribe tu nombre y cuéntanos qué pasó. Si puedes, incluye tu número de pedido, que aparece en Mis pedidos. Te respondemos en ese mismo chat lo antes posible.',
         accion: ['💬 Escribir mi reclamo', 'guiaCerrar(); ayAbrirCon("Quiero poner un reclamo: ")'] },
-      { id: 'comentarios', ico: '💡', t: 'Observaciones y comentarios',
+      { id: 'comentarios', imgs: {"0": "reclamo1", "1": "comentarios1"}, ico: '💡', t: 'Observaciones y comentarios',
         pasos: ['Toca <b>💬 ¿Necesitas ayuda?</b>.', 'Cuéntanos tu sugerencia, felicitación o comentario.', '¡Cada mensaje nos ayuda a mejorar!'],
         voz: '¿Tienes una sugerencia, un comentario o una felicitación? Nos encanta escucharte. Toca el botón Necesitas ayuda y escríbenos lo que quieras. Cada mensaje nos ayuda a mejorar.',
         accion: ['💬 Escribir comentario', 'guiaCerrar(); ayAbrirCon("Observación / comentario: ")'] }
@@ -3632,7 +3635,7 @@
         <p class="gc-nota">También puedes tocar el mapa (o arrastrar el pin) donde quieres recibir tu pedido.</p>
         <div class="gc-res" id="gc-res">Marca tu ubicación para ver el precio.</div>
         <button class="checkout-btn gu-accion" id="gc-usar" style="display:none;margin-bottom:8px" onclick="gcUsar()">✅ Usar esta ubicación en mi pedido</button>` : `
-        <ol class="gu-pasos">${g.pasos.map(p => `<li>${p}</li>`).join('')}</ol>`}
+        <ol class="gu-pasos">${g.pasos.map((p, i) => `<li>${p}${g.imgs && g.imgs[i] ? `<img class="gu-img" loading="lazy" src="guia/img/${g.imgs[i]}.jpg" alt="Así se ve" onclick="guiaZoom(this.src)">` : ''}</li>`).join('')}</ol>`}
         <button class="checkout-btn gu-accion" onclick='${g.accion[1]}'>${g.accion[0]}</button>`;
       box().scrollTop = 0;
       if (g.cotizador) gcIniciar();
@@ -3702,6 +3705,7 @@
       try { if (typeof mapaUbic !== 'undefined' && mapaUbic) ponerPin(envioCalc.lat, envioCalc.lng, false); } catch (e) {}
       showToast('✅ Listo: usaremos esta ubicación para tu envío');
     };
+    window.guiaZoom = function (src) { const z = document.createElement('div'); z.className = 'gu-zoom'; z.innerHTML = '<img src="' + src + '" alt="">'; z.onclick = () => z.remove(); document.body.appendChild(z); };
     window.guiaLista = lista;
     window.abrirGuia = function (id) {
       document.getElementById('gu-ov').classList.add('open');
