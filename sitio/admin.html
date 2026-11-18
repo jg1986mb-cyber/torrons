@@ -42,10 +42,16 @@
     .btn.ghost { background: white; color: var(--secondary); border: 1.5px solid var(--border); }
     .error { color: var(--primary); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
-    .tab { padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: white; cursor: pointer; font-weight: 600; font-family: inherit; font-size: 0.9rem; }
+    /* Menú negro: todas las opciones a la vista */
+    header { flex-direction: column; align-items: stretch; padding: 10px 12px 10px; gap: 8px; }
+    .hdr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .tabs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 4px 6px; border-radius: 12px; border: 1px solid #3a3a3a; background: #262626; color: #e8e2dc; cursor: pointer; font-weight: 600; font-family: inherit; font-size: 0.74rem; line-height: 1.1; }
+    .tab i { font-style: normal; font-size: 1.25rem; line-height: 1.1; }
+    .tab:hover { background: #333; }
     .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .tabs .tab .badge-new { position: absolute; top: -5px; right: -3px; margin: 0; }
+    @media (max-width: 560px) { .tabs { grid-template-columns: repeat(4, 1fr); } header h1 { font-size: .98rem; } }
     .panel { display: none; }
     .panel.active { display: block; }
     .card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 16px; }
@@ -200,12 +206,71 @@
     .alerta-fraude { margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: #ffebee; border: 2px solid #c62828; color: #b71c1c; font-size: .88rem; }
     .alerta-fraude ul { margin: 6px 0 6px 18px; }
     .c-cupon { margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: #fff8e1; border: 1.5px dashed #f9a825; font-size: .85rem; font-weight: 700; color: #6d4c00; }
+    /* Ayuda (chat con clientes) */
+    .ay-card { padding: 0; overflow: hidden; }
+    .ay-wrap { display: grid; grid-template-columns: 300px 1fr; height: min(70vh, 620px); }
+    .ay-lista { border-right: 1px solid var(--border); overflow-y: auto; background: #fbf8f5; }
+    .ay-lista-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: #fbf8f5; z-index: 1; }
+    #ay-chats > .hint { padding: 14px; }
+    .ay-item { display: block; width: 100%; text-align: left; padding: 11px 14px; border: none; border-bottom: 1px solid #efe7df; background: transparent; cursor: pointer; font-family: inherit; }
+    .ay-item:hover { background: #f3ece5; }
+    .ay-item.sel { background: #fff; box-shadow: inset 4px 0 0 var(--primary); }
+    .ay-item .r1 { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: .92rem; }
+    .ay-item .r1 small { font-weight: 500; color: var(--muted); white-space: nowrap; }
+    .ay-item .r2 { display: flex; justify-content: space-between; gap: 8px; font-size: .82rem; color: var(--muted); margin-top: 3px; }
+    .ay-item .r2 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ay-item.nuevo .r2 span { color: #222; font-weight: 600; }
+    .ay-item .n { flex: none; background: var(--primary); color: #fff; border-radius: 999px; min-width: 20px; height: 20px; padding: 0 6px; font-size: .74rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+    .ay-conv { display: flex; flex-direction: column; min-width: 0; }
+    .ay-vacio { margin: auto; text-align: center; color: var(--muted); padding: 20px; line-height: 1.6; }
+    .ay-chead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .ay-chead > div:not(.acts) { flex: 1; min-width: 0; }
+    .ay-chead small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ay-chead b { font-size: 1rem; }
+    .ay-chead small { color: var(--muted); display: block; font-size: .8rem; }
+    .ay-chead .acts { margin-left: auto; display: flex; gap: 6px; flex: none; }
+    .ay-back { display: none; border: none; background: #f1ebe5; border-radius: 10px; padding: 7px 10px; font-size: 1rem; cursor: pointer; }
+    .ay-hist { flex: 1; overflow-y: auto; padding: 14px; background: #faf6f1; display: flex; flex-direction: column; gap: 8px; }
+    .ay-b { max-width: 80%; padding: 8px 12px; border-radius: 16px; font-size: .9rem; line-height: 1.35; white-space: pre-wrap; word-wrap: break-word; }
+    .ay-b small { display: block; font-size: .68rem; opacity: .65; margin-top: 3px; text-align: right; }
+    .ay-b.c { align-self: flex-start; background: #fff; border: 1px solid #eadfd3; border-bottom-left-radius: 4px; }
+    .ay-b.t { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+    .ay-b.saludo { align-self: center; background: #fff4e6; border: 1px dashed #f1d6b4; font-size: .8rem; color: #8a5a2b; max-width: 92%; }
+    .ay-rap { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; }
+    .ay-rap button { flex: none; border: 1.5px solid #e86a17; background: #fff; color: #b4500f; border-radius: 999px; padding: 5px 11px; font-family: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ay-resp { display: flex; gap: 8px; padding: 10px 12px; align-items: flex-end; }
+    .ay-resp textarea, .ay-ta { width: 100%; border: 1.5px solid var(--border); border-radius: 12px; padding: 9px 11px; font-family: inherit; font-size: .92rem; resize: vertical; }
+    .ay-resp textarea { height: 44px; resize: none; }
+    .ay-resp button { flex: none; height: 44px; padding: 0 16px; }
+    .ay-check { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-top: 10px; }
+    .ay-sonidos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .ay-son { display: flex; align-items: center; gap: 6px; border: 1.5px solid var(--border); border-radius: 12px; padding: 8px 10px; cursor: pointer; background: #fff; font-weight: 600; font-size: .88rem; }
+    .ay-son.sel { border-color: var(--primary); background: #fff3f4; box-shadow: 0 0 0 3px rgba(196,30,58,.1); }
+    .ay-son span { flex: 1; }
+    .ay-son button { border: none; background: #f1ebe5; border-radius: 8px; width: 32px; height: 30px; cursor: pointer; font-size: .9rem; }
+    @media (max-width: 720px) {
+      .ay-wrap { grid-template-columns: 1fr; height: calc(100dvh - 205px); min-height: 380px; }
+      .ay-card { scroll-margin-top: 175px; }
+      .ay-wrap .ay-conv { display: none; }
+      .ay-wrap.abierta .ay-lista { display: none; }
+      .ay-wrap.abierta .ay-conv { display: flex; }
+      .ay-back { display: inline-block; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>Café <span>Torrons</span> · Administración</h1>
-    <button id="logout-btn" style="display:none;" onclick="firebase.auth().signOut()">Salir</button>
+    <div class="hdr-row"><h1>Café <span>Torrons</span> · Administración</h1>
+    <button id="logout-btn" style="display:none;" onclick="firebase.auth().signOut()">Salir</button></div>
+    <nav class="tabs" id="menu-tabs" style="display:none">
+      <button class="tab active" data-tab="productos" onclick="showTab('productos')"><i>🏷️</i>Precios</button>
+      <button class="tab" data-tab="ventas" onclick="showTab('ventas')"><i>📊</i>Ventas</button>
+      <button class="tab" data-tab="pedidos" onclick="showTab('pedidos')"><i>🧾</i>Comandas <span id="new-badge" class="badge-new" style="display:none">0</span></button>
+      <button class="tab" data-tab="ayuda" onclick="showTab('ayuda')"><i>💬</i>Ayuda <span id="ay-badge" class="badge-new" style="display:none">0</span></button>
+      <button class="tab" data-tab="cupones" onclick="showTab('cupones')"><i>🎟️</i>Cupones</button>
+      <button class="tab" data-tab="motoristas" onclick="showTab('motoristas')"><i>🛵</i>Motoristas <span id="sol-badge" class="badge-new" style="display:none">0</span></button>
+      <button class="tab" data-tab="ajustes" onclick="showTab('ajustes')"><i>⚙️</i>Ajustes</button>
+    </nav>
   </header>
 
   <main>
@@ -229,14 +294,6 @@
     <section id="app-view" style="display:none;">
       <div class="sound-unlock" id="sound-unlock"><span>🔇 Toca para activar la alarma de pedidos en este dispositivo</span><button onclick="desbloquearSonido()">Activar sonido</button></div>
       <div class="alarm-bar" id="alarm-bar"><span id="alarm-text">🔔 Nuevo pedido</span><button onclick="irAComandas()">Ver comanda</button></div>
-      <div class="tabs">
-        <button class="tab active" data-tab="productos" onclick="showTab('productos')">🏷️ Precios y stock</button>
-        <button class="tab" data-tab="ventas" onclick="showTab('ventas')">📊 Ventas</button>
-        <button class="tab" data-tab="pedidos" onclick="showTab('pedidos')">🧾 Comandas <span id="new-badge" class="badge-new" style="display:none">0</span></button>
-        <button class="tab" data-tab="cupones" onclick="showTab('cupones')">🎟️ Cupones</button>
-        <button class="tab" data-tab="motoristas" onclick="showTab('motoristas')">🛵 Motoristas <span id="sol-badge" class="badge-new" style="display:none">0</span></button>
-        <button class="tab" data-tab="ajustes" onclick="showTab('ajustes')">⚙️ Ajustes</button>
-      </div>
 
       <!-- Precios y stock -->
       <div class="panel active" id="panel-productos">
@@ -281,6 +338,38 @@
       </div>
 
       <!-- Cupones -->
+      <!-- Ayuda: chat con clientes -->
+      <div class="panel" id="panel-ayuda">
+        <div class="card ay-card">
+          <div class="ay-wrap" id="ay-wrap">
+            <div class="ay-lista">
+              <div class="ay-lista-top"><strong>💬 Conversaciones</strong><span class="hint" id="ay-cuenta" style="margin:0"></span></div>
+              <div id="ay-chats"><p class="hint">Todavía no hay mensajes de clientes.</p></div>
+            </div>
+            <div class="ay-conv" id="ay-conv">
+              <div class="ay-vacio">👈 Elige una conversación para responder.<br><small>Cuando un cliente escriba desde la página, sonará el aviso y aparecerá aquí.</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:6px">👋 Saludo automático</h3>
+          <p class="hint">Es lo primero que ve el cliente al abrir el chat de ayuda en la página.</p>
+          <textarea id="ay-saludo" class="ay-ta" rows="3" maxlength="400"></textarea>
+          <label class="ay-check"><input type="checkbox" id="ay-activo"> Mostrar el botón “¿Necesitas ayuda?” en la página</label>
+          <h3 style="margin:14px 0 6px">⚡ Respuestas rápidas</h3>
+          <p class="hint">Una por línea. Aparecen como botones al responder.</p>
+          <textarea id="ay-rapidas" class="ay-ta" rows="5" maxlength="1500"></textarea>
+          <button class="btn" style="margin-top:10px" onclick="ayGuardarCfg()">Guardar saludo y respuestas</button>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:6px">🔔 Sonido de los mensajes de ayuda</h3>
+          <p class="hint">Elige un sonido distinto al de los pedidos para reconocerlo al instante. Toca ▶️ para escucharlo.</p>
+          <div class="ay-sonidos" id="ay-sonidos"></div>
+          <div id="ay-tel-box" style="margin-top:12px"></div>
+        </div>
+      </div>
       <div class="panel" id="panel-cupones">
         <div class="card" id="cup-lock">
           <div class="cup-lock">
@@ -573,6 +662,7 @@
       document.getElementById('login-view').style.display = user ? 'none' : 'block';
       document.getElementById('app-view').style.display = user ? 'block' : 'none';
       document.getElementById('logout-btn').style.display = user ? 'inline-block' : 'none';
+      document.getElementById('menu-tabs').style.display = user ? '' : 'none';
       if (!user) return;
       document.getElementById('uid-line').textContent = 'Sesión: ' + (user.email || '') + ' · UID: ' + user.uid;
       listen(db.ref('stock'), s => { stock = s.val() || {}; renderProducts(); });
@@ -582,6 +672,8 @@
       listen(db.ref('cuponesInfo'), s => { cuponesInfo = s.val() || {}; renderCupones(); renderOrders(); });
       listen(db.ref('cuponesCfg/pin'), s => { cupPinHash = s.val() || ''; cupPinListo = true; cupMostrarLock(); });
       listen(db.ref('config/horario'), s => cargarHorario(s.val() || {}));
+      listen(db.ref('ayuda').orderByChild('ultimo').limitToLast(60), s => ayRecibir(s.val()));
+      listen(db.ref('ayudaCfg'), s => ayCargarCfg(s.val()));
       listen(db.ref('motoristas'), s => { motoristas = s.val() || {}; renderMotoristas(); });
       listen(db.ref('solicitudes').orderByChild('ts').limitToLast(100), s => { solicitudes = s.val() || {}; renderSolicitudes(); });
       listen(db.ref('entregas').orderByChild('creado').limitToLast(400), s => { entregas = s.val() || {}; renderMotoristas(); renderViajes(); renderOrders(); vencerViajes(); });
@@ -623,6 +715,8 @@
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
       document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
       if (name === 'cupones') cupMostrarLock();
+      if (name === 'ayuda') { renderAyuda(); if (ayActual && ayChats[ayActual] && ayChats[ayActual].sinLeer) ayMarcarLeido(ayActual); }
+      window.scrollTo(0, 0);
       if (document.getElementById('panel-' + name) && document.getElementById('panel-' + name).contains(document.getElementById('cot-mapa'))) cotIniciar();
     }
 
@@ -1516,6 +1610,161 @@
       return confirm('⚠️ SEGUNDA CONFIRMACIÓN\n\n¿Estás completamente seguro? Esto no se puede deshacer.');
     }
     const AVISOS_URL = 'https://torrons-avisos.analyzerog.workers.dev';
+
+    // ---------- Ayuda: chat con clientes ----------
+    const AY_SALUDO_DEF = '¡Hola! 👋 Bienvenido a Café Torrons.\n¿En qué te podemos ayudar? Escríbenos aquí y te respondemos enseguida.';
+    const AY_RAPIDAS_DEF = [
+      '¡Hola! Ya estamos revisando tu consulta, un momento por favor 🙌',
+      'Tu pedido ya va en camino 🛵',
+      'Tu pedido ya está listo para recoger en el local 🏪',
+      '¿Nos compartes el número de tu pedido, por favor?',
+      'Puedes pagar con tarjeta desde la página o en efectivo al recibir 💳💵',
+      '¡Gracias por escribirnos! Que lo disfrutes 🧡'
+    ];
+    const AY_SONIDOS = [
+      { id: 'campanita', n: '🔔 Campanita' }, { id: 'ding_dong', n: '🚪 Ding-dong' }, { id: 'taza_cafe', n: '☕ Taza de café' },
+      { id: 'marimba', n: '🎶 Marimba' }, { id: 'burbuja', n: '🫧 Burbuja' }, { id: 'gota', n: '💧 Gota' },
+      { id: 'silbido', n: '😗 Silbido' }, { id: 'triple_bip', n: '📟 Triple bip' }
+    ];
+    let ayChats = {}, ayActual = null, ayCfg = { saludo: AY_SALUDO_DEF, activo: true, rapidas: AY_RAPIDAS_DEF }, ayCargado = false, ayMaxVisto = 0;
+    let aySonido = 'campanita', ayTelNombre = '';
+    try { aySonido = localStorage.getItem('torrons_sonido_ayuda') || 'campanita'; ayTelNombre = localStorage.getItem('torrons_sonido_ayuda_tel') || ''; } catch (e) {}
+    const ayApp = fn => EN_APP && window.TorronsApp && typeof TorronsApp[fn] === 'function';
+    if (ayApp('sonidoAyudaActual')) { try { const a = JSON.parse(TorronsApp.sonidoAyudaActual() || '{}'); if (a.id) { aySonido = a.id; ayTelNombre = a.nombre || ''; } } catch (e) {} }
+
+    function aySonar(id, auto) {
+      if (auto && document.hidden) return; // con la app en segundo plano suena el aviso del teléfono
+      id = id || aySonido;
+      if (ayApp('sonarAyuda')) { try { TorronsApp.sonarAyuda(id); return; } catch (e) {} }
+      if (id === 'tel') id = 'campanita'; // el sonido del teléfono solo existe dentro de la app
+      try { const a = new Audio('sonidos/' + id + '.wav'); a.volume = Math.min(1, alarmaCfg.vol || 1); a.play().catch(() => {}); } catch (e) {}
+    }
+    function ayElegirSonido(id) {
+      aySonido = id;
+      try { localStorage.setItem('torrons_sonido_ayuda', id); } catch (e) {}
+      if (ayApp('elegirSonidoAyuda')) { try { TorronsApp.elegirSonidoAyuda(id); } catch (e) {} }
+      renderAySonidos(); aySonar(id);
+    }
+    function ayTelefono() {
+      if (ayApp('elegirSonidoTelefono')) { try { TorronsApp.elegirSonidoTelefono(); } catch (e) {} }
+    }
+    window.aySonidoTelefono = function (nombre) { // la app avisa qué sonido del teléfono se eligió
+      aySonido = 'tel'; ayTelNombre = nombre || 'Sonido del teléfono';
+      try { localStorage.setItem('torrons_sonido_ayuda', 'tel'); localStorage.setItem('torrons_sonido_ayuda_tel', ayTelNombre); } catch (e) {}
+      renderAySonidos(); toast('🔔 Sonido de ayuda: ' + ayTelNombre);
+    };
+    function renderAySonidos() {
+      const box = document.getElementById('ay-sonidos'); if (!box) return;
+      box.innerHTML = AY_SONIDOS.map(s => `<div class="ay-son ${aySonido === s.id ? 'sel' : ''}" onclick="ayElegirSonido('${s.id}')"><span>${aySonido === s.id ? '✅ ' : ''}${s.n}</span><button type="button" title="Escuchar" onclick="event.stopPropagation(); aySonar('${s.id}')">▶️</button></div>`).join('');
+      const tb = document.getElementById('ay-tel-box');
+      if (ayApp('elegirSonidoTelefono')) {
+        tb.innerHTML = `<div class="ay-son ${aySonido === 'tel' ? 'sel' : ''}" onclick="ayTelefono()" style="max-width:420px"><span>${aySonido === 'tel' ? '✅ ' : ''}📱 Sonido del teléfono${ayTelNombre && aySonido === 'tel' ? ': <b>' + esc(ayTelNombre) + '</b>' : ' (elegir…)'}</span>${aySonido === 'tel' ? `<button type="button" onclick="event.stopPropagation(); aySonar('tel')">▶️</button>` : ''}</div>
+          <p class="hint" style="margin:8px 0 0">El sonido elegido suena también con la app cerrada.</p>`;
+      } else {
+        tb.innerHTML = `<p class="hint" style="margin:0">📱 Para usar un sonido propio del teléfono (tonos de llamada, notificaciones o alarmas), abre esta pestaña desde la app <b>Torrons Cocina</b> actualizada.</p>`;
+      }
+    }
+
+    const ayHora = t => { if (!t) return ''; const d = new Date(t), hoy = new Date(); return d.toDateString() === hoy.toDateString() ? d.toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit' }); };
+    function ayRecibir(v) {
+      ayChats = v || {};
+      const lista = Object.entries(ayChats);
+      const maxC = Math.max(0, ...lista.filter(([, c]) => c && c.ultimoDe === 'c').map(([, c]) => Number(c.ultimo) || 0));
+      if (ayCargado && maxC > ayMaxVisto) {
+        const [, c] = lista.find(([, c]) => Number(c.ultimo) === maxC) || [, {}];
+        aySonar(null, true);
+        toast('💬 ' + (c.nombre || 'Un cliente') + ': ' + String(c.ultimoTxt || '').slice(0, 60));
+      }
+      ayMaxVisto = Math.max(ayMaxVisto, maxC); ayCargado = true;
+      if (ayActual && document.getElementById('panel-ayuda').classList.contains('active') && ayChats[ayActual] && ayChats[ayActual].sinLeer) ayMarcarLeido(ayActual);
+      renderAyuda();
+    }
+    function ayMarcarLeido(id) { db.ref('ayuda/' + id + '/sinLeer').set(0).catch(() => {}); }
+    function renderAyuda() {
+      const lista = Object.entries(ayChats).filter(([, c]) => c && typeof c === 'object').sort((a, b) => (b[1].ultimo || 0) - (a[1].ultimo || 0));
+      const total = lista.reduce((n, [, c]) => n + (Number(c.sinLeer) || 0), 0);
+      const bd = document.getElementById('ay-badge'); bd.textContent = total; bd.style.display = total ? '' : 'none';
+      document.getElementById('ay-cuenta').textContent = lista.length ? lista.length + ' chat(s)' : '';
+      document.getElementById('ay-chats').innerHTML = lista.length ? lista.map(([id, c]) => `
+        <button class="ay-item ${id === ayActual ? 'sel' : ''} ${c.sinLeer ? 'nuevo' : ''}" onclick="ayAbrirChat('${id}')">
+          <div class="r1"><span>${esc(c.nombre || 'Cliente')}</span><small>${ayHora(c.ultimo)}</small></div>
+          <div class="r2"><span>${c.ultimoDe === 't' ? '↪️ ' : ''}${esc(c.ultimoTxt || '')}</span>${c.sinLeer ? `<b class="n">${Number(c.sinLeer)}</b>` : ''}</div>
+        </button>`).join('') : '<p class="hint">Todavía no hay mensajes de clientes.</p>';
+      renderAyConv();
+    }
+    function renderAyConv() {
+      const box = document.getElementById('ay-conv');
+      const c = ayActual && ayChats[ayActual];
+      document.getElementById('ay-wrap').classList.toggle('abierta', !!c);
+      if (!c) { box.innerHTML = '<div class="ay-vacio">👈 Elige una conversación para responder.<br><small>Cuando un cliente escriba desde la página, sonará el aviso y aparecerá aquí.</small></div>'; return; }
+      const previo = document.getElementById('ay-resp-txt'); const borrador = previo ? previo.value : '';
+      const foco = previo && document.activeElement === previo;
+      let tel = String(c.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
+      const msgs = Object.values(c.msgs || {}).sort((a, b) => (a.t || 0) - (b.t || 0));
+      const rap = (ayCfg.rapidas && ayCfg.rapidas.length ? ayCfg.rapidas : AY_RAPIDAS_DEF);
+      box.innerHTML = `
+        <div class="ay-chead">
+          <button class="ay-back" onclick="ayActual=null; renderAyuda()" title="Volver">⬅️</button>
+          <div><b>${esc(c.nombre || 'Cliente')}</b><small>${c.tel ? '📞 ' + esc(c.tel) : 'Sin teléfono'}${c.pedido ? ' · 🧾 Pedido #' + esc(c.pedido) : ''} · desde ${ayHora(c.creado)}</small></div>
+          <div class="acts">
+            ${tel.length >= 11 ? `<a class="btn small ghost" href="https://wa.me/${tel}" target="_blank" rel="noopener" title="Abrir WhatsApp">💬 WA</a>` : ''}
+            <button class="btn small ghost" onclick="ayBorrar('${ayActual}')" title="Eliminar conversación">🗑️</button>
+          </div>
+        </div>
+        <div class="ay-hist" id="ay-hist">
+          <div class="ay-b saludo">Saludo automático: ${esc(ayCfg.saludo || AY_SALUDO_DEF)}</div>
+          ${msgs.map(m => `<div class="ay-b ${m.de === 't' ? 't' : 'c'}">${esc(m.txt)}<small>${ayHora(m.t)}</small></div>`).join('')}
+        </div>
+        <div class="ay-rap">${rap.map((r, i) => `<button type="button" title="${esc(r)}" onclick="ayRapida(${i})">${esc(r)}</button>`).join('')}</div>
+        <div class="ay-resp">
+          <textarea id="ay-resp-txt" maxlength="600" placeholder="Escribe tu respuesta…"></textarea>
+          <button class="btn" onclick="ayResponder()">Enviar</button>
+        </div>`;
+      const ta = document.getElementById('ay-resp-txt'); ta.value = borrador;
+      ta.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); ayResponder(); } });
+      if (foco) ta.focus();
+      const h = document.getElementById('ay-hist'); h.scrollTop = h.scrollHeight;
+    }
+    function ayAbrirChat(id) {
+      ayActual = id; renderAyuda();
+      if (window.innerWidth <= 720) document.getElementById('ay-wrap').parentElement.scrollIntoView({ block: 'start' });
+      if (ayChats[id] && ayChats[id].sinLeer) ayMarcarLeido(id);
+      setTimeout(() => { const t = document.getElementById('ay-resp-txt'); if (t && window.innerWidth > 720) t.focus(); }, 30);
+    }
+    function ayRapida(i) {
+      const rap = (ayCfg.rapidas && ayCfg.rapidas.length ? ayCfg.rapidas : AY_RAPIDAS_DEF);
+      const ta = document.getElementById('ay-resp-txt'); ta.value = rap[i] || ''; ta.focus();
+    }
+    async function ayResponder() {
+      const id = ayActual; const ta = document.getElementById('ay-resp-txt');
+      const txt = (ta.value || '').trim().slice(0, 600);
+      if (!id || !txt) return;
+      ta.value = '';
+      const base = db.ref('ayuda/' + id), k = base.child('msgs').push().key;
+      try {
+        await base.update({ ['msgs/' + k]: { de: 't', txt, t: firebase.database.ServerValue.TIMESTAMP }, ultimo: firebase.database.ServerValue.TIMESTAMP, ultimoTxt: txt.slice(0, 120), ultimoDe: 't', sinLeer: 0 });
+      } catch (e) { ta.value = txt; toast('❌ No se pudo enviar: ' + e.message); }
+    }
+    function ayBorrar(id) {
+      const c = ayChats[id] || {};
+      if (!dobleConfirmar('¿Eliminar la conversación con ' + (c.nombre || 'este cliente') + '?')) return;
+      db.ref('ayuda/' + id).remove().then(() => { if (ayActual === id) ayActual = null; toast('🗑️ Conversación eliminada'); }).catch(e => toast('❌ ' + e.message));
+    }
+    function ayCargarCfg(v) {
+      ayCfg = Object.assign({ saludo: AY_SALUDO_DEF, activo: true, rapidas: AY_RAPIDAS_DEF }, v || {});
+      const s = document.getElementById('ay-saludo'), r = document.getElementById('ay-rapidas'), a = document.getElementById('ay-activo');
+      if (document.activeElement !== s) s.value = ayCfg.saludo;
+      if (document.activeElement !== r) r.value = (ayCfg.rapidas || []).join('\n');
+      a.checked = ayCfg.activo !== false;
+      renderAyConv();
+    }
+    function ayGuardarCfg() {
+      const saludo = document.getElementById('ay-saludo').value.trim().slice(0, 400) || AY_SALUDO_DEF;
+      const rapidas = document.getElementById('ay-rapidas').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 12).map(x => x.slice(0, 200));
+      db.ref('ayudaCfg').set({ saludo, rapidas, activo: document.getElementById('ay-activo').checked })
+        .then(() => toast('✅ Saludo y respuestas guardados')).catch(e => toast('❌ ' + e.message));
+    }
+    renderAySonidos();
     async function borrarMotorista(uid) {
       const m = motoristas[uid] || {};
       const nom = m.nombre || 'este registro sin datos';

@@ -333,11 +333,33 @@ async function borrarMotorista(req, env) {
   return json(req, { ok: true, cuenta });
 }
 
+// ================= Ayuda: un cliente escribió en el chat de la página =================
+async function avisarChat(env, id, c) {
+  if (!c || c.ultimoDe !== 'c') return { ok: false, motivo: 'nada' };
+  const ultimo = Number(c.ultimo) || 0;
+  if (Date.now() - ultimo > 10 * 60000) return { ok: false, motivo: 'viejo' };
+  if ((Number(c.avisado) || 0) >= ultimo) return { ok: true, motivo: 'ya' };
+  await db(env, 'ayuda/' + id + '.json', { method: 'PATCH', body: JSON.stringify({ avisado: ultimo }) });
+  const nombre = String(c.nombre || 'Un cliente').slice(0, 40);
+  const ok = await enviarPush(env, { tipo: 'ayuda', key: 'ayuda-' + id, repetir: '1', titulo: '💬 ' + nombre + ' escribió en Ayuda', cuerpo: String(c.ultimoTxt || ''), voz: 'Mensaje de ayuda de ' + nombre + '.' });
+  return { ok };
+}
+async function avisarAyuda(env, id) {
+  if (typeof id !== 'string' || id.length < 20 || id.length > 32 || /[^A-Za-z0-9]/.test(id)) return { ok: false, motivo: 'id' };
+  const r = await db(env, 'ayuda/' + id + '.json');
+  return avisarChat(env, id, await r.json());
+}
+async function revisarAyuda(env) {
+  const r = await db(env, 'ayuda.json?orderBy=%22ultimo%22&startAt=' + (Date.now() - 10 * 60000));
+  const chats = (await r.json()) || {};
+  for (const id of Object.keys(chats)) { try { await avisarChat(env, id, chats[id]); } catch (e) {} }
+}
 const txt = (t, status = 200) => new Response(t, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
 export default {
   async scheduled(_ev, env, ctx) {
     ctx.waitUntil(revisarPedidos(env).catch(e => console.log('revisarPedidos', e.message)));
+    ctx.waitUntil(revisarAyuda(env).catch(e => console.log('revisarAyuda', e.message)));
   },
 
   async fetch(req, env, ctx) {
@@ -365,6 +387,11 @@ export default {
         voz: '¡Llegó un pedido de prueba! Los avisos de Torrons funcionan.'
       });
       return txt(ok ? '✅ Aviso de prueba enviado a la app' : '❌ No se pudo enviar el aviso', ok ? 200 : 500);
+    }
+    if (url.pathname === '/ayuda') {
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
+      let id = ''; try { id = String((await req.json()).id || ''); } catch (e) {}
+      try { return json(req, await avisarAyuda(env, id)); } catch (e) { return json(req, { ok: false }, 500); }
     }
     if (url.pathname === '/revisar') {
       const r = await revisarPedidos(env);
