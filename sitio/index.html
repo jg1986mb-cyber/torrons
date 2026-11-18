@@ -3601,7 +3601,7 @@
       if (audio && !audio.paused) { audio.pause(); b.textContent = '▶️'; est.textContent = 'En pausa'; return; }
       if (audio && audio.paused && audio.currentTime > 0) { audio.play(); b.textContent = '⏸️'; est.textContent = 'Escuchando…'; return; }
       if (usandoVoz) { parar(); est.textContent = 'Toca ▶️ para escuchar'; return; }
-      audio = new Audio('guia/' + g.id + '.mp3');
+      audio = new Audio('guia/' + g.id + '.mp3?v=2');
       audio.ontimeupdate = () => { if (!audio || !audio.duration) return; const f = audio.currentTime / audio.duration; barra.style.width = (f * 100) + '%'; marcarPaso(f); };
       audio.onended = () => { b.textContent = '🔁'; barra.style.width = '100%'; marcarPaso(1); est.textContent = '¡Listo! Toca 🔁 para repetir'; audio = null; };
       audio.onerror = () => { audio = null; hablarRespaldo(g); };
