@@ -3480,6 +3480,20 @@
     .gu-pasos li::before { content: counter(p); position: absolute; left: 10px; top: 9px; width: 26px; height: 26px; border-radius: 50%; background: #e86a17; color: #fff; font-weight: 800; font-size: .85rem; display: flex; align-items: center; justify-content: center; }
     .gu-pasos li.hablando { background: #fff0e0; box-shadow: inset 4px 0 0 #e86a17; }
     .gu-accion { width: 100%; }
+    .gu-op.dest { border-color: #e86a17; background: linear-gradient(135deg, #fff1e3, #ffe2c9); }
+    .gc-q { display: flex; gap: 6px; margin-bottom: 8px; }
+    .gc-q input { flex: 1; min-width: 0; border: 1.5px solid #e5ddd5; border-radius: 12px; padding: 11px 12px; font-family: inherit; font-size: .92rem; }
+    .gc-q button, .gc-ubic { border: none; border-radius: 12px; padding: 0 14px; background: #c41e3a; color: #fff; font-family: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; }
+    .gc-ubic { width: 100%; padding: 11px; background: #3b2416; font-size: .92rem; margin-bottom: 8px; }
+    .gc-ops button { display: block; width: 100%; text-align: left; border: 1.5px solid #eadfd3; background: #fff; border-radius: 10px; padding: 8px 10px; margin-bottom: 4px; font-family: inherit; font-size: .84rem; cursor: pointer; }
+    #gc-mapa { height: 260px; border-radius: 14px; border: 1px solid #eadfd3; margin-bottom: 6px; }
+    .gc-nota { font-size: .8rem; color: #8a7a6c; margin: 0 0 10px; }
+    .gc-res { border-radius: 16px; padding: 14px; text-align: center; margin-bottom: 10px; background: #faf6f1; color: #6b5a4c; font-size: .92rem; }
+    .gc-res.ok { background: #e9f7ec; border: 2px solid #2e7d32; color: #1b5e20; }
+    .gc-res.ok small { display: block; font-size: .85rem; font-weight: 600; }
+    .gc-res.ok b { display: block; font-size: 2.6rem; line-height: 1.1; }
+    .gc-res.mal { background: #ffebee; border: 2px solid #c62828; color: #b71c1c; font-weight: 600; }
+
     @media (max-width: 420px) { .gu-grid { grid-template-columns: 1fr; } }
   </style>
   <div class="gu-ov" id="gu-ov" onclick="if(event.target===this) guiaCerrar()">
@@ -3514,6 +3528,10 @@
       { id: 'delivery', ico: '🛵', t: 'Cómo pedir delivery',
         pasos: ['En el carrito elige <b>🚚 Delivery</b> (o <b>🛵 Contra entrega</b> si pagas el envío en efectivo al motorista).', 'Toca <b>➡️ Continuar con el pedido</b> y escribe tu dirección.', 'Toca <b>📍 Usar mi ubicación actual</b> o toca el mapa donde quieres recibirlo.', 'El costo del envío se calcula solo según la distancia.', 'Confirma tu pedido. Uno de nuestros motoristas te lo lleva.'],
         voz: 'Para pedir a domicilio, en el carrito elige Delivery. Si prefieres pagar el envío en efectivo al motorista, elige Contra entrega. Toca Continuar con el pedido y escribe tu dirección. Después toca Usar mi ubicación actual, o toca el mapa en el punto exacto donde quieres recibirlo. El costo del envío se calcula solito, según la distancia. Confirma tu pedido, y uno de nuestros motoristas te lo lleva calientito.',
+        accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
+      { id: 'cuanto', ico: '💰', t: '¿Cuánto me sale el envío?', cotizador: true,
+        pasos: [],
+        voz: 'Para saber cuánto te sale el envío, escribe tu dirección o pega el link de Google Maps. También puedes tocar Usar mi ubicación, o tocar el mapa en el lugar donde quieres recibir tu pedido. Al instante verás el precio aproximado del envío.',
         accion: ['🛒 Abrir mi carrito', 'guiaCerrar(); toggleCart()'] },
       { id: 'retiro', ico: '🏪', t: 'Cómo recoger en el local',
         pasos: ['En el carrito elige <b>🏪 Retiro</b>. No pagas envío.', 'Llena tu nombre y número y confirma tu pedido.', 'En <b>🧾 Mis pedidos</b> verás cuando esté <b>Listo</b>.', 'Pasa por él a <b>1a avenida A 1-00, zona 2, El Sauce</b>.'],
@@ -3555,6 +3573,8 @@
 
     let audio = null, actual = null, usandoVoz = false;
     const box = () => document.getElementById('gu-body');
+    let gcMap = null, gcPin = null, gcCalc = null;
+    function gcQuitar() { if (gcMap) { try { gcMap.remove(); } catch (e) {} } gcMap = null; gcPin = null; gcCalc = null; }
     function parar() {
       if (audio) { try { audio.pause(); } catch (e) {} audio = null; }
       if (usandoVoz && window.speechSynthesis) speechSynthesis.cancel();
@@ -3562,8 +3582,8 @@
       const b = document.getElementById('gu-btn'); if (b) b.textContent = '▶️';
     }
     function lista() {
-      parar(); actual = null;
-      box().innerHTML = '<div class="gu-grid">' + GUIAS.map(g => `<button class="gu-op" onclick="guiaVer('${g.id}')"><i>${g.ico}</i><span>${g.t}</span></button>`).join('') + '</div>';
+      parar(); gcQuitar(); actual = null;
+      box().innerHTML = '<div class="gu-grid">' + GUIAS.map(g => `<button class="gu-op${g.cotizador ? ' dest' : ''}" onclick="guiaVer('${g.id}')"><i>${g.ico}</i><span>${g.t}</span></button>`).join('') + '</div>';
       box().scrollTop = 0;
     }
     function marcarPaso(frac) {
@@ -3598,23 +3618,96 @@
       b.textContent = '⏹️'; est.textContent = 'Escuchando…';
     }
     window.guiaVer = function (id) {
-      parar();
+      parar(); gcQuitar();
       const g = GUIAS.find(x => x.id === id); if (!g) return;
       actual = id;
       box().innerHTML = `<button class="gu-volver" onclick="guiaLista()">⬅️ Todas las guías</button>
         <div class="gu-tit"><i>${g.ico}</i><h3>${g.t}</h3></div>
         <div class="gu-play"><button id="gu-btn" onclick="guiaPlay()" aria-label="Escuchar">▶️</button><div class="barra"><span id="gu-barra"></span></div><small id="gu-est">Toca ▶️ para escuchar</small></div>
-        <ol class="gu-pasos">${g.pasos.map(p => `<li>${p}</li>`).join('')}</ol>
+        ${g.cotizador ? `
+        <div class="gc-q"><input id="gc-q" placeholder="Tu dirección o link de Google Maps" enterkeyhint="search"><button onclick="gcBuscar()" aria-label="Buscar">🔎</button></div>
+        <button class="gc-ubic" onclick="gcMiUbic()">📍 Usar mi ubicación actual</button>
+        <div class="gc-ops" id="gc-ops"></div>
+        <div id="gc-mapa"></div>
+        <p class="gc-nota">También puedes tocar el mapa (o arrastrar el pin) donde quieres recibir tu pedido.</p>
+        <div class="gc-res" id="gc-res">Marca tu ubicación para ver el precio.</div>
+        <button class="checkout-btn gu-accion" id="gc-usar" style="display:none;margin-bottom:8px" onclick="gcUsar()">✅ Usar esta ubicación en mi pedido</button>` : `
+        <ol class="gu-pasos">${g.pasos.map(p => `<li>${p}</li>`).join('')}</ol>`}
         <button class="checkout-btn gu-accion" onclick='${g.accion[1]}'>${g.accion[0]}</button>`;
       box().scrollTop = 0;
+      if (g.cotizador) gcIniciar();
       guiaPlay();
+    };
+    // ---- ¿Cuánto me sale el envío? (solo el precio final) ----
+    function gcCoords(t) {
+      t = decodeURIComponent(String(t || ''));
+      const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /[?&](?:q|query|ll|destination|daddr|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /(-?1[3-5]\.\d{3,})\s*,\s*(-?9[01]\.\d{3,})/, /^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/];
+      for (const p of pats) { const m = t.match(p); if (m) { const a = Number(m[1]), b = Number(m[2]); if (a > 13 && a < 18 && b < -88 && b > -93) return [a, b]; } }
+      return null;
+    }
+    async function gcIniciar() {
+      try { await cargarLeaflet(); } catch (e) { document.getElementById('gc-res').textContent = 'No se pudo cargar el mapa. Revisa tu internet.'; return; }
+      const el = document.getElementById('gc-mapa'); if (!el || gcMap) return;
+      gcMap = L.map(el, { scrollWheelZoom: false }).setView(TORRONS_POS, 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(gcMap);
+      L.marker(TORRONS_POS, { title: 'Café Torrons' }).addTo(gcMap).bindTooltip('☕ Torrons');
+      gcMap.on('click', e => gcPunto(e.latlng.lat, e.latlng.lng));
+      document.getElementById('gc-q').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); gcBuscar(); } });
+      setTimeout(() => gcMap && gcMap.invalidateSize(), 200);
+    }
+    async function gcPunto(lat, lng) {
+      if (!gcMap) await gcIniciar();
+      if (!gcMap) return;
+      if (!gcPin) { gcPin = L.marker([lat, lng], { draggable: true }).addTo(gcMap).bindTooltip('🏠 Aquí', { permanent: true, direction: 'top', offset: [-15, -12] }); gcPin.on('dragend', () => { const p = gcPin.getLatLng(); gcPunto(p.lat, p.lng); }); }
+      else gcPin.setLatLng([lat, lng]);
+      gcMap.setView([lat, lng], Math.max(gcMap.getZoom(), 15));
+      const res = document.getElementById('gc-res'), usar = document.getElementById('gc-usar');
+      res.className = 'gc-res'; res.textContent = '⏳ Calculando…'; usar.style.display = 'none';
+      let km = null, min = null;
+      try { if (PAGOS.url) { const d = await (await fetch(`${PAGOS.url}/distancia?lat=${lat}&lng=${lng}`)).json(); if (d && d.km) { km = d.km; min = d.min; } } } catch (e) {}
+      if (km == null) km = Math.round(distanciaRecta(TORRONS_POS[0], TORRONS_POS[1], lat, lng) * 1.35 * 10) / 10;
+      const monto = Math.max(ENVIO.minimo, Math.round(ENVIO.base + ENVIO.porKm * km));
+      gcCalc = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, km, min };
+      if (km > ENVIO.maxKm) { res.className = 'gc-res mal'; res.innerHTML = '🚫 Esa ubicación está fuera de nuestra zona de envío.<br>Puedes pedir con 🏪 Retiro en local.'; return; }
+      res.className = 'gc-res ok'; res.innerHTML = `<small>🛵 Tu envío sale aproximadamente</small><b>Q ${monto}</b>`;
+      usar.style.display = '';
+    }
+    window.gcBuscar = async function () {
+      const q = document.getElementById('gc-q').value.trim(), ops = document.getElementById('gc-ops'), res = document.getElementById('gc-res');
+      ops.innerHTML = '';
+      if (!q) { document.getElementById('gc-q').focus(); return; }
+      const c = gcCoords(q); if (c) return gcPunto(c[0], c[1]);
+      if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(q)) { res.className = 'gc-res'; res.textContent = 'Ese link corto no trae la ubicación. Mejor toca 📍 Usar mi ubicación o toca el mapa.'; return; }
+      res.className = 'gc-res'; res.textContent = '⏳ Buscando…';
+      try {
+        const l = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&countrycodes=gt&limit=5&accept-language=es&q=' + encodeURIComponent(/guatemala/i.test(q) ? q : q + ', Guatemala'))).json();
+        if (!l.length) { res.textContent = 'No encontré esa dirección. Prueba con colonia y zona, o toca el mapa.'; return; }
+        if (l.length === 1) return gcPunto(Number(l[0].lat), Number(l[0].lon));
+        window._gcOps = l; res.textContent = 'Elige la correcta 👆';
+        ops.innerHTML = l.map((x, i) => `<button onclick="gcElegir(${i})">📍 ${String(x.display_name).split(',').slice(0, 4).join(',').replace(/[<>&]/g, '')}</button>`).join('');
+      } catch (e) { res.textContent = 'No se pudo buscar. Toca el lugar en el mapa.'; }
+    };
+    window.gcElegir = function (i) { const x = (window._gcOps || [])[i]; if (!x) return; document.getElementById('gc-ops').innerHTML = ''; gcPunto(Number(x.lat), Number(x.lon)); };
+    window.gcMiUbic = function () {
+      const res = document.getElementById('gc-res');
+      if (!navigator.geolocation) { res.textContent = 'Tu teléfono no permite compartir ubicación; toca el mapa.'; return; }
+      res.className = 'gc-res'; res.textContent = '⏳ Buscando tu ubicación…';
+      navigator.geolocation.getCurrentPosition(p => gcPunto(p.coords.latitude, p.coords.longitude),
+        () => { res.textContent = 'No pudimos leer tu ubicación. Toca el mapa donde quieres recibirlo.'; },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    };
+    window.gcUsar = function () {
+      if (!gcCalc) return;
+      envioCalc = Object.assign({}, gcCalc); aplicarTarifa();
+      try { if (typeof mapaUbic !== 'undefined' && mapaUbic) ponerPin(envioCalc.lat, envioCalc.lng, false); } catch (e) {}
+      showToast('✅ Listo: usaremos esta ubicación para tu envío');
     };
     window.guiaLista = lista;
     window.abrirGuia = function (id) {
       document.getElementById('gu-ov').classList.add('open');
       if (id) guiaVer(id); else lista();
     };
-    window.guiaCerrar = function () { parar(); document.getElementById('gu-ov').classList.remove('open'); };
+    window.guiaCerrar = function () { parar(); gcQuitar(); document.getElementById('gu-ov').classList.remove('open'); };
     window.guiaIr = function (sel) { guiaCerrar(); const el = document.querySelector(sel); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     if (/[?&#]guia\b/.test(location.search + location.hash)) setTimeout(() => abrirGuia(), 600);
   })();
