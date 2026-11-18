@@ -358,8 +358,8 @@ const txt = (t, status = 200) => new Response(t, { status, headers: { 'Content-T
 
 export default {
   async scheduled(_ev, env, ctx) {
-    ctx.waitUntil(revisarPedidos(env).catch(e => console.log('revisarPedidos', e.message)));
     ctx.waitUntil(revisarAyuda(env).catch(e => console.log('revisarAyuda', e.message)));
+    ctx.waitUntil(revisarPedidos(env).catch(e => console.log('revisarPedidos', e.message)));
   },
 
   async fetch(req, env, ctx) {
