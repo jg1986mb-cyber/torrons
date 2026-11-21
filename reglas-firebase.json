@@ -184,6 +184,28 @@
           ".validate": "(auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1')"
         }
       }
+    },
+    "clientes": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".indexOn": [
+        "tel"
+      ],
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid && !data.child('bloqueado').exists()"
+      }
+    },
+    "tels": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    },
+    "reservas": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    },
+    "intentos": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
     }
   }
 }

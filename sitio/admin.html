@@ -45,7 +45,7 @@
     /* Menú negro: todas las opciones a la vista */
     header { flex-direction: column; align-items: stretch; padding: 10px 12px 10px; gap: 8px; }
     .hdr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .tabs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .tabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
     .tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 4px 6px; border-radius: 12px; border: 1px solid #3a3a3a; background: #262626; color: #e8e2dc; cursor: pointer; font-weight: 600; font-family: inherit; font-size: 0.74rem; line-height: 1.1; }
     .tab i { font-style: normal; font-size: 1.25rem; line-height: 1.1; }
     .tab:hover { background: #333; }
@@ -268,6 +268,7 @@
       <button class="tab" data-tab="pedidos" onclick="showTab('pedidos')"><i>🧾</i>Comandas <span id="new-badge" class="badge-new" style="display:none">0</span></button>
       <button class="tab" data-tab="ayuda" onclick="showTab('ayuda')"><i>💬</i>Ayuda <span id="ay-badge" class="badge-new" style="display:none">0</span></button>
       <button class="tab" data-tab="cupones" onclick="showTab('cupones')"><i>🎟️</i>Cupones</button>
+      <button class="tab" data-tab="club" onclick="showTab('club')"><i>🎰</i>Club</button>
       <button class="tab" data-tab="motoristas" onclick="showTab('motoristas')"><i>🛵</i>Motoristas <span id="sol-badge" class="badge-new" style="display:none">0</span></button>
       <button class="tab" data-tab="ajustes" onclick="showTab('ajustes')"><i>⚙️</i>Ajustes</button>
     </nav>
@@ -370,6 +371,26 @@
           <div id="ay-tel-box" style="margin-top:12px"></div>
         </div>
       </div>
+      <!-- Club Torrons: clientes, puntos, premios -->
+      <div class="panel" id="panel-club">
+        <div class="card">
+          <h2>🎰 Club Torrons · Clientes</h2>
+          <p class="hint">Busca por nombre, apellido, teléfono o correo. Desde aquí ves sus compras, puntos y premios, los ayudas si tienen problemas y bloqueas la cuenta si te lo piden (por ejemplo, si les robaron el teléfono).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input id="cl-buscar" placeholder="🔎 Buscar cliente…" oninput="clRender()" style="flex:1;min-width:200px;padding:11px 12px;border:1.5px solid #ddd;border-radius:10px;font:inherit">
+            <button class="btn" onclick="clCargar(true)">🔄 Actualizar</button>
+          </div>
+          <div id="cl-resumen" class="hint" style="margin-top:8px"></div>
+          <div id="cl-lista" style="margin-top:8px"></div>
+        </div>
+        <div class="card" id="cl-detalle" style="display:none"></div>
+        <div class="card">
+          <h2>🎁 Premios de la máquina</h2>
+          <p class="hint">Probabilidad de cada premio (deben sumar 100). <b>Tiro diario</b>: 1 gratis al día por cliente. <b>Tiro por compra</b>: 1 por cada pedido entregado. Los premios duran 7 días; los puntos, 6 meses.</p>
+          <div id="cl-juego"></div>
+        </div>
+      </div>
+
       <div class="panel" id="panel-cupones">
         <div class="card" id="cup-lock">
           <div class="cup-lock">
@@ -715,6 +736,7 @@
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
       document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
       if (name === 'cupones') cupMostrarLock();
+      if (name === 'club') { clCargar(); clJuego(); }
       if (name === 'ayuda') { renderAyuda(); if (ayActual && ayChats[ayActual] && ayChats[ayActual].sinLeer) ayMarcarLeido(ayActual); }
       window.scrollTo(0, 0);
       if (document.getElementById('panel-' + name) && document.getElementById('panel-' + name).contains(document.getElementById('cot-mapa'))) cotIniciar();
@@ -1610,6 +1632,138 @@
       return confirm('⚠️ SEGUNDA CONFIRMACIÓN\n\n¿Estás completamente seguro? Esto no se puede deshacer.');
     }
     const AVISOS_URL = 'https://torrons-avisos.analyzerog.workers.dev';
+
+    // ================= CLUB TORRONS (clientes, puntos, premios) =================
+    let clientes = {}, clSel = null, clCargado = 0;
+    const clQ = n => 'Q ' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+    const clF = (t, h) => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' }) + (h ? ' ' + d.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' }) : ''); };
+    const clEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const clSaldo = c => Object.values((c && c.lotes) || {}).reduce((s, l) => s + (l && l.vence > Date.now() ? Number(l.resta) || 0 : 0), 0);
+    function clCargar(forzar) {
+      if (!forzar && Date.now() - clCargado < 60000) return clRender();
+      document.getElementById('cl-lista').innerHTML = '<p class="hint">Cargando…</p>';
+      db.ref('clientes').once('value').then(s => { clientes = s.val() || {}; clCargado = Date.now(); clRender(); if (clSel) clVer(clSel); }).catch(permError);
+    }
+    function clRender() {
+      const q = (document.getElementById('cl-buscar').value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const qd = q.replace(/\D/g, '');
+      const arr = Object.keys(clientes).map(k => Object.assign({ uid: k }, clientes[k])).filter(c => {
+        if (!q) return true;
+        const t = ((c.nombre || '') + ' ' + (c.apellido || '') + ' ' + (c.email || '')).toLowerCase();
+        return t.includes(q) || (qd.length >= 3 && String(c.tel || '').includes(qd));
+      }).sort((a, b) => (b.creado || 0) - (a.creado || 0));
+      const tot = Object.values(clientes);
+      document.getElementById('cl-resumen').textContent = `${tot.length} cliente(s) en el Club · ${tot.filter(c => c.bloqueado).length} bloqueado(s) · ${clQ(tot.reduce((s, c) => s + clSaldo(c), 0))} en puntos vigentes`;
+      document.getElementById('cl-lista').innerHTML = arr.slice(0, 80).map(c => {
+        const tel = String(c.tel || '').replace(/^502/, '');
+        return `<div onclick="clVer('${c.uid}')" style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:1.5px solid ${clSel === c.uid ? '#c41e3a' : '#eee'};border-radius:12px;margin-bottom:6px;cursor:pointer;background:${c.bloqueado ? '#fff4f4' : '#fff'}">
+          <div><b>${clEsc(c.nombre)} ${clEsc(c.apellido || '')}</b> ${c.bloqueado ? '<span style="color:#c62828;font-weight:700">🔒 Bloqueado</span>' : ''}<br><small style="color:#777">📱 ${clEsc(tel)} · ${clEsc(c.email || '')}</small></div>
+          <div style="text-align:right;white-space:nowrap"><b>⭐ ${clQ(clSaldo(c))}</b><br><small style="color:#777">${Object.keys(c.compras || {}).length} compra(s)</small></div></div>`;
+      }).join('') || '<p class="hint">No hay clientes que coincidan.</p>';
+    }
+    async function clAccion(uid, accion, extra) {
+      const tok = await auth.currentUser.getIdToken();
+      const r = await fetch(AVISOS_URL + '/cuenta/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify(Object.assign({ uid, accion }, extra || {})) });
+      const d = await r.json().catch(() => ({ ok: false, error: 'Sin respuesta del servidor' }));
+      if (!d.ok) { toast('❌ ' + (d.error || 'No se pudo')); return null; }
+      return d;
+    }
+    function clVer(uid) {
+      clSel = uid; clRender();
+      const c = clientes[uid]; if (!c) return;
+      const box = document.getElementById('cl-detalle'); box.style.display = 'block';
+      const ahora = Date.now(), tel = String(c.tel || '').replace(/^502/, '');
+      const premios = Object.keys(c.premios || {}).map(k => Object.assign({ k }, c.premios[k])).sort((a, b) => b.emitido - a.emitido);
+      const est = p => p.usado ? '✅ Usado ' + clF(p.usado.t) : p.vence < ahora ? '⌛ Vencido' : (p.reservado && p.reservado.t > ahora - 20 * 60000) ? '⏳ Apartado' : '🟢 Disponible';
+      const compras = Object.keys(c.compras || {}).map(k => Object.assign({ k }, c.compras[k])).sort((a, b) => (b.t || 0) - (a.t || 0));
+      const movs = Object.values(c.movs || {}).sort((a, b) => b.t - a.t).slice(0, 40);
+      const j = c.juego || {};
+      box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
+          <div><h2 style="margin:0">${clEsc(c.nombre)} ${clEsc(c.apellido || '')}</h2>
+            <div class="hint" style="margin:4px 0">📱 ${clEsc(tel)} · 📧 ${clEsc(c.email || '')} · Socio desde ${clF(c.creado)}${c.telAnterior ? ' · número anterior: ' + clEsc(String(c.telAnterior).replace(/^502/, '')) : ''}</div>
+            ${c.bloqueado ? `<div style="background:#fff0f0;color:#b71c1c;border-radius:10px;padding:8px 10px;margin-top:6px">🔒 <b>Bloqueada</b> el ${clF(c.bloqueado.t, true)} · ${clEsc(c.bloqueado.motivo || '')}</div>` : ''}</div>
+          <div style="text-align:right"><div style="font-size:1.6rem;font-weight:800;color:#b45309">⭐ ${clQ(clSaldo(c))}</div><small class="hint">Tiro diario: ${j.dia === new Date(Date.now() - 6 * 3600000).toISOString().slice(0, 10) ? 'ya jugó hoy' : 'disponible'} · Tiros por compra: ${Number(j.compras) || 0}</small></div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0">
+          ${c.bloqueado ? `<button class="btn" onclick="clBloq('${uid}',false)">🔓 Desbloquear cuenta</button>` : `<button class="btn" style="background:#c62828;color:#fff" onclick="clBloq('${uid}',true)">🔒 Bloquear cuenta</button>`}
+          <button class="btn" onclick="clRecup('${uid}')">📧 Enviar correo para cambiar clave</button>
+          <button class="btn" onclick="clPuntos('${uid}')">⭐ Dar puntos</button>
+          <button class="btn" onclick="clTiro('${uid}','compra')">🎁 Dar 1 tiro por compra</button>
+          <button class="btn" onclick="clTiro('${uid}','diario')">🎰 Devolver tiro de hoy</button>
+        </div>
+        <h3 style="margin:14px 0 6px">🎁 Premios</h3>
+        ${premios.length ? premios.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0"><div>${clEsc(p.emoji)} <b>${clEsc(p.txt)}</b> <small style="color:#888">(${p.origen === 'compra' ? 'tiro por compra' : 'tiro diario'})</small><br><small style="color:#777">Emitido ${clF(p.emitido, true)} · Vence ${clF(p.vence, true)}${p.usado ? ' · pedido #' + clEsc(String(p.usado.pedido || '').slice(-5).toUpperCase()) : ''}${p.reactivado ? ' · reactivado ' + clF(p.reactivado.t) : ''}</small></div>
+          <div style="text-align:right;white-space:nowrap"><small>${est(p)}</small>${est(p).indexOf('Disponible') < 0 ? `<br><button class="btn" style="padding:4px 10px;font-size:.78rem" onclick="clReact('${uid}','${p.k}')">♻️ Reactivar 7 días</button>` : ''}</div></div>`).join('') : '<p class="hint">Sin premios todavía.</p>'}
+        <h3 style="margin:14px 0 6px">🛍️ Compras</h3>
+        ${compras.length ? compras.map(o => `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0"><div><b>#${clEsc(o.codigo)}</b> · ${clF(o.t, true)}<br><small style="color:#777">${clEsc(o.items || '')} · ${clEsc(o.estado || '')}</small></div><div style="text-align:right"><b>${clQ(o.total)}</b><br><small style="color:#1e7a33">${o.puntos ? '+' + clQ(o.puntos) + ' pts' : ''}</small></div></div>`).join('') : '<p class="hint">Sin compras con la cuenta.</p>'}
+        <h3 style="margin:14px 0 6px">⭐ Movimientos de puntos</h3>
+        ${movs.length ? movs.map(m => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5"><span>${clEsc(m.motivo || m.tipo)}<br><small style="color:#888">${clF(m.t, true)}</small></span><b style="color:${m.pts > 0 ? '#1e7a33' : '#c62828'}">${m.pts > 0 ? '+' : '−'}${clQ(Math.abs(m.pts))}</b></div>`).join('') : '<p class="hint">Sin movimientos.</p>'}`;
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    async function clBloq(uid, bloquear) {
+      const c = clientes[uid] || {}; const nom = (c.nombre || '') + ' ' + (c.apellido || '');
+      if (bloquear) {
+        const motivo = prompt(`¿Por qué bloqueas la cuenta de ${nom}?`, 'A petición del cliente (teléfono robado o perdido)');
+        if (motivo == null) return;
+        if (!dobleConfirmar(`¿Bloquear la cuenta de ${nom}? No podrá entrar, jugar ni usar sus puntos hasta que la desbloquees.`)) return;
+        if (await clAccion(uid, 'bloquear', { motivo })) toast('🔒 Cuenta bloqueada');
+      } else {
+        if (!dobleConfirmar(`¿Desbloquear la cuenta de ${nom}? Confirma antes con el cliente que es el dueño (por ejemplo, por su correo).`)) return;
+        if (await clAccion(uid, 'desbloquear')) toast('🔓 Cuenta desbloqueada. Si cambió de teléfono, envíale el correo para cambiar su clave.');
+      }
+      clCargar(true);
+    }
+    async function clRecup(uid) { const d = await clAccion(uid, 'recuperar'); if (d) toast('📧 Correo enviado a ' + d.correo); }
+    async function clPuntos(uid) {
+      const v = prompt('¿Cuántos puntos (Q) le das? (máx. 500)', '5'); if (v == null) return;
+      const pts = Number(String(v).replace(',', '.')); if (!(pts > 0)) return toast('Cantidad no válida');
+      const motivo = prompt('Motivo (lo verá el cliente):', 'Compensación por un problema con su pedido'); if (motivo == null) return;
+      if (!confirm(`¿Dar ${clQ(pts)} en puntos a ${(clientes[uid] || {}).nombre}?`)) return;
+      if (await clAccion(uid, 'dar-puntos', { puntos: pts, motivo })) { toast('⭐ Puntos agregados'); clCargar(true); }
+    }
+    async function clTiro(uid, tipo) {
+      if (!confirm(tipo === 'diario' ? '¿Devolverle el tiro diario de hoy?' : '¿Darle 1 tiro por compra?')) return;
+      if (await clAccion(uid, 'dar-tiro', { tipo })) { toast('🎰 Listo'); clCargar(true); }
+    }
+    async function clReact(uid, k) {
+      const motivo = prompt('Motivo de la reactivación:', 'El cliente tuvo un problema para usarlo'); if (motivo == null) return;
+      if (await clAccion(uid, 'reactivar-premio', { premio: k, motivo, dias: 7 })) { toast('♻️ Premio reactivado por 7 días'); clCargar(true); }
+    }
+    // ----- Tabla de premios de la máquina -----
+    const CL_JUEGO_DEF = {
+      diario: [['nada','¡Casi! Vuelve mañana','😅','nada',0,0,0,50],['pts3','+3 puntos (Q3)','⭐','puntos',3,0,0,22],['d5','5% de descuento','🎟️','pct',5,40,0,14],['d10','10% de descuento','💰','pct',10,50,0,7],['cafe','Café gratis','☕','producto',0,30,14,4],['papas','Papas 100 g gratis','🍟','producto',0,30,28,2.5],['hotdog','Hot-Dog Completo gratis','🌭','producto',0,50,6,0.5]],
+      compra: [['pts2','+2 puntos (Q2)','⭐','puntos',2,0,0,45],['pts5','+5 puntos (Q5)','🌟','puntos',5,0,0,22],['d10','10% de descuento','💰','pct',10,0,0,15],['bebida','Café gratis','☕','producto',0,0,14,10],['papas200','Papas 200 g gratis','🍟','producto',0,0,12,5],['churrasco','Churrasco con Queso gratis','🥩','producto',0,0,1,2.5],['chorrillana','¡Chorrillana gratis!','🎉','producto',0,0,11,0.5]]
+    };
+    let clCfgJuego = null;
+    function clJuego() {
+      db.ref('config/juego').once('value').then(s => {
+        const v = s.val() || {};
+        clCfgJuego = {};
+        ['diario', 'compra'].forEach(t => {
+          clCfgJuego[t] = Array.isArray(v[t]) && v[t].length ? v[t] : CL_JUEGO_DEF[t].map(a => ({ id: a[0], txt: a[1], emoji: a[2], tipo: a[3], valor: a[4], minimo: a[5], prod: a[6] || null, prob: a[7] }));
+        });
+        clJuegoPintar();
+      }).catch(permError);
+    }
+    function clJuegoPintar() {
+      const h = ['diario', 'compra'].map(t => {
+        const sum = clCfgJuego[t].reduce((s, p) => s + (Number(p.prob) || 0), 0);
+        return `<h3 style="margin:12px 0 6px">${t === 'diario' ? '🎰 Tiro diario' : '🎁 Tiro por compra'} <small style="color:${Math.abs(sum - 100) < .01 ? '#1e7a33' : '#c62828'}">suma ${sum.toFixed(1)}%</small></h3>` +
+          clCfgJuego[t].map((p, i) => `<div style="display:grid;grid-template-columns:34px 1fr 86px;gap:6px;align-items:center;margin-bottom:5px">
+            <span style="font-size:1.3rem">${clEsc(p.emoji)}</span>
+            <input value="${clEsc(p.txt)}" onchange="clCfgJuego['${t}'][${i}].txt=this.value" style="padding:7px 9px;border:1.5px solid #ddd;border-radius:8px;font:inherit">
+            <label style="display:flex;align-items:center;gap:3px"><input type="number" step="0.5" min="0" max="100" value="${Number(p.prob)}" onchange="clCfgJuego['${t}'][${i}].prob=Number(this.value);clJuegoPintar()" style="width:62px;padding:7px;border:1.5px solid #ddd;border-radius:8px;font:inherit">%</label></div>`).join('');
+      }).join('');
+      document.getElementById('cl-juego').innerHTML = h + '<button class="btn" style="margin-top:10px" onclick="clJuegoGuardar()">💾 Guardar premios</button> <button class="btn" onclick="clJuegoReset()">↩️ Valores originales</button>';
+    }
+    function clJuegoGuardar() {
+      for (const t of ['diario', 'compra']) {
+        const sum = clCfgJuego[t].reduce((s, p) => s + (Number(p.prob) || 0), 0);
+        if (Math.abs(sum - 100) > .01) return toast(`Las probabilidades del ${t === 'diario' ? 'tiro diario' : 'tiro por compra'} suman ${sum.toFixed(1)}%. Deben sumar 100.`);
+      }
+      if (!confirm('¿Guardar la tabla de premios? Se aplica desde el próximo tiro.')) return;
+      db.ref('config/juego').set(clCfgJuego).then(() => toast('✅ Premios guardados')).catch(permError);
+    }
+    function clJuegoReset() { if (!confirm('¿Volver a la tabla original de premios?')) return; db.ref('config/juego').remove().then(() => { toast('Tabla original restaurada'); clJuego(); }).catch(permError); }
 
     // ---------- Ayuda: chat con clientes ----------
     const AY_SALUDO_DEF = '¡Hola! 👋 Bienvenido a Café Torrons.\n¿En qué te podemos ayudar? Escríbenos aquí y te respondemos enseguida.';

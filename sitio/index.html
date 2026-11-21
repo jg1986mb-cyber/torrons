@@ -11,6 +11,7 @@
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <style>
     :root {
       --primary: #c41e3a;
@@ -1459,7 +1460,7 @@
       <span style="text-align:left;line-height:1.2;"><small style="display:block;font-size:.62rem;letter-spacing:.05em;white-space:nowrap;text-transform:uppercase;opacity:.92;">Portafolio · Trabaja con nosotros y más</small><strong style="font-family:Georgia,serif;font-size:1rem;letter-spacing:.02em;">torronsguatemala.com</strong></span>
       <span style="font-size:1.1rem;opacity:.9;">↗</span>
     </a>
-    <p class="legal-links"><a href="legal.html#terminos">Términos de compra</a> · <a href="legal.html#privacidad">Privacidad</a> · <a href="legal.html#alergenos">Alérgenos</a> · <a href="legal.html#cupones">Cupones</a> · <a href="legal.html#negocio">Datos del negocio</a></p>
+    <p class="legal-links"><a href="legal.html#terminos">Términos de compra</a> · <a href="legal.html#privacidad">Privacidad</a> · <a href="legal.html#alergenos">Alérgenos</a> · <a href="legal.html#club">Club Torrons</a> · <a href="legal.html#cupones">Cupones</a> · <a href="legal.html#negocio">Datos del negocio</a></p>
     <p class="legal-links" style="opacity:.6;margin-top:4px;">© 2026 Café Torrons Guatemala · Torrons, S.A. · NIT 108096971 · 1a avenida A 1-00, zona 2, El Sauce · ventas@torronsguatemala.com</p>
   </footer>
 
@@ -1479,6 +1480,7 @@
       <div class="delivery-hint" id="delivery-hint"></div>
     </div>
     <div class="cupon-box" id="cupon-box" style="display:none;"></div>
+    <div class="cu-canje" id="cu-canje" style="display:none;"></div>
     <div class="cart-items" id="cart-items">
       <!-- Cart items -->
     </div>
@@ -1491,6 +1493,14 @@
         <div class="cart-row cupon-row" id="cart-cupon-row" style="display:none;">
           <span id="cart-cupon-label">🎟️ Cupón</span>
           <span id="cart-cupon">−Q 0.00</span>
+        </div>
+        <div class="cart-row cupon-row" id="cart-premio-row" style="display:none;">
+          <span id="cart-premio-label">🎁 Premio</span>
+          <span id="cart-premio">−Q 0.00</span>
+        </div>
+        <div class="cart-row cupon-row" id="cart-puntos-row" style="display:none;">
+          <span>⭐ Puntos canjeados</span>
+          <span id="cart-puntos">−Q 0.00</span>
         </div>
         <div class="cart-row">
           <span id="cart-delivery-label">Envío (Capital)</span>
@@ -2179,6 +2189,7 @@
       if (!r.ok) { showToast('🎟️ ' + r.msg); return; }
       cupon = { code, pct: r.pct, vence: r.vence, conTel: r.conTel };
       try { localStorage.setItem('torronsCupon', JSON.stringify(cupon)); } catch (e) {}
+      if (window.cuAlAplicarCupon) cuAlAplicarCupon();
       updateCartUI();
       showToast(`🎉 ¡Tu cupón ${code} (${r.pct}%) ya está listo! Agrega tus productos al carrito`);
     }, 600));
@@ -2209,6 +2220,7 @@
       if (!r.ok) { err.textContent = r.msg; return; }
       cupon = { code, pct: r.pct, vence: r.vence, conTel: r.conTel };
       try { localStorage.setItem('torronsCupon', JSON.stringify(cupon)); } catch (e) {}
+      if (window.cuAlAplicarCupon) cuAlAplicarCupon();
       updateCartUI();
       showToast(getCartDescuento() > 0 ? `🎉 ¡Cupón aplicado! ${r.pct}% de descuento` : '🔥 Tus productos ya están en oferta: el cupón no es acumulable');
     }
@@ -2237,6 +2249,7 @@
         }
         row.style.display = 'none';
       }
+      if (window.cuRenderCanje) cuRenderCanje();
     }
 
     function getCartSubtotal() {
@@ -2244,7 +2257,7 @@
     }
 
     function getCartTotal() {
-      return Math.round((getCartSubtotal() - getCartDescuento() + getDeliveryFee()) * 100) / 100;
+      return Math.round((getCartSubtotal() - getCartDescuento() - (window.cuDescTotal ? cuDescTotal() : 0) + getDeliveryFee()) * 100) / 100;
     }
 
     function getCartCount() {
@@ -2418,7 +2431,7 @@
     });
 
     // ========== REGISTRO DE PEDIDOS (para estadísticas en admin.html) ==========
-    function registrarPedido(cliente) {
+    function registrarPedido(cliente, llave) {
       try {
         const items = {};
         cart.forEach((item, i) => {
@@ -2440,7 +2453,7 @@
         });
         const c = {};
         Object.keys(cliente || {}).forEach(k => { if (cliente[k]) c[k] = String(cliente[k]).slice(0, 300); });
-        const ref = db.ref('pedidos').push();
+        const ref = llave ? db.ref('pedidos/' + llave) : db.ref('pedidos').push();
         const datos = {
           ts: firebase.database.ServerValue.TIMESTAMP,
           cliente: c,
@@ -2451,6 +2464,8 @@
         };
         const cup = cupon && getCartDescuento() > 0 ? { codigo: cupon.code, pct: cupon.pct, descuento: getCartDescuento() } : null;
         if (cup) datos.cupon = cup;
+        const cta = window.cuDatosPedido ? cuDatosPedido() : null;
+        if (cta) datos.cuenta = cta;
         ref.set(datos).then(() => {
           if (cup) return db.ref('cupones/' + cup.codigo + '/usado').set({ pedido: ref.key, ts: firebase.database.ServerValue.TIMESTAMP });
         }).catch(() => {});
@@ -2609,6 +2624,7 @@
       if (cart.length === 0) return;
       if (!tiendaAbierta(true)) return;
 
+      if (window.cuPrefill) cuPrefill();
       renderResumenCheckout();
       const isPickup0 = deliveryMethod === 'pickup';
       if (!isPickup0) setTimeout(() => { prepararMapaUbicacion(); mostrarInfoEnvio(); }, 50);
@@ -2623,6 +2639,7 @@
       });
       html += `<br>Subtotal: Q ${getCartSubtotal().toFixed(2)}<br>`;
       if (cupon && getCartDescuento() > 0) html += `<span style="color:#2e7d32;font-weight:700">🎟️ Cupón ${cupon.code} (−${cupon.pct}%): −Q ${getCartDescuento().toFixed(2)}</span><br>`;
+      (window.cuLineas ? cuLineas() : []).forEach(l => { html += `<span style="color:#2e7d32;font-weight:700">${l.t}: −Q ${l.v.toFixed(2)}</span><br>`; });
       html += `${getDeliveryLabel()}: ${getDeliveryText()}<br>`;
       if (deliveryMethod === 'cash') {
         html += `<strong>Total productos: Q ${getCartTotal().toFixed(2)}</strong><br>`;
@@ -2631,7 +2648,7 @@
         html += `<strong>Total a pagar: Q ${getCartTotal().toFixed(2)}</strong><br>`;
         html += `💳 Al confirmar pagas con tarjeta en Paggo.`;
       } else if (!envioCalc || envioCalc.fuera) {
-        html += `<strong>Productos: Q ${(getCartSubtotal() - getCartDescuento()).toFixed(2)}</strong> + envío (marca tu ubicación para calcularlo)`;
+        html += `<strong>Productos: Q ${(getCartSubtotal() - getCartDescuento() - (window.cuDescTotal ? cuDescTotal() : 0)).toFixed(2)}</strong> + envío (marca tu ubicación para calcularlo)`;
       } else {
         html += `<strong>Total a pagar: Q ${getCartTotal().toFixed(2)}</strong><br>`;
         html += `💳 Al confirmar pagas con tarjeta en Paggo.`;
@@ -2702,7 +2719,7 @@
       }
       confirmarPedidoReal();
     }
-    function confirmarPedidoReal() {
+    async function confirmarPedidoReal() {
       const name = document.getElementById('customer-name').value.trim();
       const phone = document.getElementById('customer-phone').value.trim();
       const a = getAddressParts();
@@ -2752,6 +2769,7 @@
       m += `${SEP}${NL}`;
       m += `Subtotal: Q ${getCartSubtotal().toFixed(2)}${NL}`;
       if (cupon && getCartDescuento() > 0) m += `🎟️ Cupón ${cupon.code} (−${cupon.pct}%): −Q ${getCartDescuento().toFixed(2)}${NL}`;
+      (window.cuLineas ? cuLineas() : []).forEach(l => { m += `${l.t}: −Q ${l.v.toFixed(2)}${NL}`; });
       if (deliveryMethod === 'delivery') {
         m += `Envío (${envioCalc.km} km): Q ${getDeliveryFee().toFixed(2)}${NL}`;
         m += `*TOTAL: Q ${getCartTotal().toFixed(2)}*${NL}${NL}`;
@@ -2768,8 +2786,16 @@
       m += `${NL}Por favor confirmen disponibilidad. ¡Gracias!`;
 
       const email = (document.getElementById('customer-email') || {}).value || '';
+      // Club Torrons: aparta premio y puntos antes de crear el pedido
+      const llaveNueva = db.ref('pedidos').push().key;
+      if (window.cuReservar) {
+        const bt = document.getElementById('confirm-btn'); const bt0 = bt.innerHTML; bt.disabled = true; bt.innerHTML = '⏳ Apartando tus premios…';
+        const rv = await cuReservar(llaveNueva);
+        bt.disabled = false; bt.innerHTML = bt0;
+        if (!rv.ok) { showToast('🎁 ' + (rv.error || 'No se pudo usar tu premio o puntos')); updateCartUI(); renderResumenCheckout(); return; }
+      }
       const pedidoKey = registrarPedido({ nombre: name, tel: phone, email: email.trim(), calle: isPickup ? '' : a.calle, colonia: isPickup ? '' : a.colonia, zona: isPickup ? '' : a.zona, maps: isPickup ? '' : maps,
-        lat: isPickup ? '' : envioCalc.lat, lng: isPickup ? '' : envioCalc.lng, km: isPickup ? '' : envioCalc.km, envio: isPickup ? '' : envioCalc.monto });
+        lat: isPickup ? '' : envioCalc.lat, lng: isPickup ? '' : envioCalc.lng, km: isPickup ? '' : envioCalc.km, envio: isPickup ? '' : envioCalc.monto }, llaveNueva);
 
       if (!pagoEnLinea() || !pedidoKey) {
         if (pedidoKey) {
@@ -2797,6 +2823,7 @@
 
     function vaciarCarrito() {
       quitarCupon(true);
+      if (window.cuLimpiarCanje) cuLimpiarCanje();
       cart.length = 0;
       saveCart();
       updateCartUI();
@@ -3742,6 +3769,7 @@
     if (/[?&#]guia\b/.test(location.search + location.hash)) setTimeout(() => abrirGuia(), 600);
   })();
   </script>
+  <script src="cuenta.js?v=1"></script>
   <script src="navidad.js?v=2" defer></script>
 </body>
 </html>

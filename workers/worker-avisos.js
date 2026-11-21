@@ -356,10 +356,420 @@ async function revisarAyuda(env) {
 }
 const txt = (t, status = 200) => new Response(t, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
+// ============================================================
+//  CUENTAS DE CLIENTES · Puntos (2%) · Máquina de premios
+//  Todo lo que vale dinero (puntos, premios, tiros) lo decide y lo
+//  escribe este servidor; el navegador del cliente solo lo lee.
+// ============================================================
+const PUNTOS_PCT = 0.02;            // 2% de cada compra entregada (sin envío)
+const PUNTOS_MESES = 6;             // los puntos vencen a los 6 meses
+const PUNTOS_MIN_CANJE = 5;         // se canjean desde Q5
+const PREMIO_DIAS = 7;              // los premios vencen a los 7 días
+const RESERVA_MIN = 20;             // una reserva sin pedido pagado se libera a los 20 min
+const DIA = 86400000;
+
+// Tablas por defecto (se pueden cambiar desde el administrador en juegoCfg)
+const JUEGO_DEF = {
+  diario: [
+    { id: 'nada', txt: '¡Casi! Vuelve mañana', emoji: '😅', tipo: 'nada', prob: 50 },
+    { id: 'pts3', txt: '+3 puntos (Q3)', emoji: '⭐', tipo: 'puntos', valor: 3, prob: 22 },
+    { id: 'd5', txt: '5% de descuento', emoji: '🎟️', tipo: 'pct', valor: 5, minimo: 40, prob: 14 },
+    { id: 'd10', txt: '10% de descuento', emoji: '💰', tipo: 'pct', valor: 10, minimo: 50, prob: 7 },
+    { id: 'cafe', txt: 'Café gratis', emoji: '☕', tipo: 'producto', prod: 14, minimo: 30, prob: 4 },
+    { id: 'papas', txt: 'Papas 100 g gratis', emoji: '🍟', tipo: 'producto', prod: 28, minimo: 30, prob: 2.5 },
+    { id: 'hotdog', txt: 'Hot-Dog Completo gratis', emoji: '🌭', tipo: 'producto', prod: 6, minimo: 50, prob: 0.5 }
+  ],
+  compra: [
+    { id: 'pts2', txt: '+2 puntos (Q2)', emoji: '⭐', tipo: 'puntos', valor: 2, prob: 45 },
+    { id: 'pts5', txt: '+5 puntos (Q5)', emoji: '🌟', tipo: 'puntos', valor: 5, prob: 22 },
+    { id: 'd10', txt: '10% de descuento', emoji: '💰', tipo: 'pct', valor: 10, minimo: 0, prob: 15 },
+    { id: 'bebida', txt: 'Café gratis', emoji: '☕', tipo: 'producto', prod: 14, minimo: 0, prob: 10 },
+    { id: 'papas200', txt: 'Papas 200 g gratis', emoji: '🍟', tipo: 'producto', prod: 12, minimo: 0, prob: 5 },
+    { id: 'churrasco', txt: 'Churrasco con Queso gratis', emoji: '🥩', tipo: 'producto', prod: 1, minimo: 0, prob: 2.5 },
+    { id: 'chorrillana', txt: '¡Chorrillana gratis!', emoji: '🎉', tipo: 'producto', prod: 11, minimo: 0, prob: 0.5 }
+  ]
+};
+
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+const hoyGT = () => new Date(Date.now() - 6 * 3600000).toISOString().slice(0, 10);
+function normTel(t) {
+  let d = String(t || '').replace(/\D/g, '');
+  if (d.length === 8) d = '502' + d;
+  return /^502\d{8}$/.test(d) ? d : '';
+}
+const correoOk = e => /^[^\s@]{1,64}@[^\s@]+\.[a-z]{2,}$/i.test(String(e || '')) && String(e).length <= 120;
+const claveOk = c => /^\d{6,12}$/.test(String(c || ''));
+function tapar(e) { const [u, d] = String(e).split('@'); return (u.slice(0, 2) + '•••@' + d); }
+async function leer(env, ruta) { const r = await db(env, ruta + '.json'); return r.ok ? r.json() : null; }
+async function escribir(env, ruta, v, metodo = 'PUT') { return db(env, ruta + '.json', { method: metodo, body: JSON.stringify(v) }); }
+
+async function firmarSA(env, payload) {
+  const sa = JSON.parse(env.FIREBASE_SA);
+  const cab = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const cuerpo = b64url(JSON.stringify(payload));
+  const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+  const der = Uint8Array.from(atob(pem), ch => ch.charCodeAt(0));
+  const llave = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  const firma = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', llave, new TextEncoder().encode(cab + '.' + cuerpo));
+  return cab + '.' + cuerpo + '.' + b64url(firma);
+}
+async function tokenCliente(env, uid) {
+  const sa = JSON.parse(env.FIREBASE_SA);
+  const ahora = Math.floor(Date.now() / 1000);
+  return firmarSA(env, { iss: sa.client_email, sub: sa.client_email, aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit', iat: ahora, exp: ahora + 3600, uid, claims: { cli: true } });
+}
+async function idt(env, ruta, cuerpo) {
+  const t = await tokenGoogle(env);
+  const p = JSON.parse(env.FIREBASE_SA).project_id;
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${p}/${ruta}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(cuerpo) });
+  const d = await r.json().catch(() => ({}));
+  return { ok: r.ok, d };
+}
+async function usuarioDe(req) {
+  const tok = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!tok) return null;
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + API_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok }) });
+  if (!r.ok) return null;
+  const u = ((await r.json()).users || [])[0];
+  return u && !u.disabled ? u : null;
+}
+async function claveCorrecta(email, clave) {
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + API_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: clave, returnSecureToken: false }) });
+  if (r.ok) return { ok: true };
+  const e = ((await r.json().catch(() => ({}))).error || {}).message || '';
+  return { ok: false, e };
+}
+// Escritura condicional: solo si el valor actual es `antes` (evita jugar dos veces o pisar un número)
+async function siIgual(env, ruta, antes, despues) {
+  const r = await db(env, ruta + '.json', { headers: { 'X-Firebase-ETag': 'true' } });
+  const etag = r.headers.get('ETag');
+  const v = await r.json();
+  if (JSON.stringify(v) !== JSON.stringify(antes)) return { ok: false, v };
+  const w = await db(env, ruta + '.json', { method: despues === null ? 'DELETE' : 'PUT', headers: { 'if-match': etag }, body: despues === null ? undefined : JSON.stringify(despues) });
+  return { ok: w.ok, v };
+}
+
+// ---------- Puntos (lotes que vencen a los 6 meses) ----------
+function saldoDe(lotes, ahora = Date.now()) {
+  return r2(Object.values(lotes || {}).reduce((s, l) => s + (l && l.vence > ahora ? Number(l.resta) || 0 : 0), 0));
+}
+async function darPuntos(env, uid, pts, motivo, extra = {}) {
+  pts = r2(pts); if (pts <= 0) return 0;
+  const t = Date.now();
+  const id = 'L' + t.toString(36) + Math.random().toString(36).slice(2, 6);
+  await escribir(env, `clientes/${uid}/lotes/${id}`, { pts, resta: pts, t, vence: t + PUNTOS_MESES * 30 * DIA, motivo });
+  await escribir(env, `clientes/${uid}/movs/${id}`, Object.assign({ tipo: 'gana', pts, t, motivo }, extra));
+  return pts;
+}
+// Descuenta puntos de los lotes que vencen primero. Devuelve lo usado de cada lote (para poder devolverlo).
+async function gastarPuntos(env, uid, pts) {
+  const lotes = (await leer(env, `clientes/${uid}/lotes`)) || {};
+  const ahora = Date.now();
+  if (saldoDe(lotes, ahora) + 0.001 < pts) return null;
+  const orden = Object.keys(lotes).filter(k => lotes[k].vence > ahora && lotes[k].resta > 0).sort((a, b) => lotes[a].vence - lotes[b].vence);
+  let falta = r2(pts); const usados = {}; const cambios = {};
+  for (const k of orden) {
+    if (falta <= 0) break;
+    const u = r2(Math.min(falta, lotes[k].resta));
+    usados[k] = u; cambios[`${k}/resta`] = r2(lotes[k].resta - u); falta = r2(falta - u);
+  }
+  await escribir(env, `clientes/${uid}/lotes`, cambios, 'PATCH');
+  return usados;
+}
+async function devolverPuntos(env, uid, usados) {
+  const lotes = (await leer(env, `clientes/${uid}/lotes`)) || {};
+  const cambios = {};
+  for (const k of Object.keys(usados || {})) if (lotes[k]) cambios[`${k}/resta`] = r2((Number(lotes[k].resta) || 0) + Number(usados[k]));
+  if (Object.keys(cambios).length) await escribir(env, `clientes/${uid}/lotes`, cambios, 'PATCH');
+}
+
+// ---------- Registro / entrada ----------
+async function cuentaRegistro(req, env) {
+  const b = await req.json().catch(() => ({}));
+  const nombre = String(b.nombre || '').trim().slice(0, 40), apellido = String(b.apellido || '').trim().slice(0, 40), tel = normTel(b.tel), email = String(b.email || '').trim().toLowerCase(), clave = String(b.clave || '');
+  if (nombre.length < 2) return { ok: false, error: 'Escribe tu nombre' };
+  if (apellido.length < 2) return { ok: false, error: 'Escribe tu apellido' };
+  if (!tel) return { ok: false, error: 'Escribe un número de teléfono de Guatemala (8 dígitos)' };
+  if (!correoOk(email)) return { ok: false, error: 'Escribe un correo válido: lo necesitas para recuperar tu clave' };
+  if (!claveOk(clave)) return { ok: false, error: 'La clave debe tener de 6 a 12 números' };
+  if (await leer(env, 'tels/' + tel)) return { ok: false, error: 'Ese número ya está en el Club Torrons. Entra con tu clave o recupérala.' };
+  const c = await idt(env, 'accounts', { email, password: clave, displayName: nombre + ' ' + apellido });
+  if (!c.ok) {
+    const m = (c.d.error || {}).message || '';
+    return { ok: false, error: /EMAIL_EXISTS/.test(m) ? 'Ese correo ya está en uso en otra cuenta' : 'No se pudo crear la cuenta (' + m.slice(0, 60) + ')' };
+  }
+  const uid = c.d.localId;
+  const pon = await siIgual(env, 'tels/' + tel, null, uid);
+  if (!pon.ok) { await idt(env, 'accounts:delete', { localId: uid }); return { ok: false, error: 'Ese número ya está en el Club Torrons' }; }
+  await escribir(env, 'clientes/' + uid, { nombre, apellido, tel, email, creado: Date.now(), juego: { compras: 0 } });
+  return { ok: true, token: await tokenCliente(env, uid) };
+}
+async function cuentaEntrar(req, env) {
+  const b = await req.json().catch(() => ({}));
+  const tel = normTel(b.tel), clave = String(b.clave || '');
+  if (!tel || !clave) return { ok: false, error: 'Escribe tu número y tu clave' };
+  const intento = (await leer(env, 'intentos/' + tel)) || {};
+  if (intento.hasta > Date.now()) return { ok: false, error: `Demasiados intentos. Prueba en ${Math.ceil((intento.hasta - Date.now()) / 60000)} min o recupera tu clave.` };
+  const uid = await leer(env, 'tels/' + tel);
+  if (!uid) return { ok: false, error: 'No hay una cuenta con ese número. ¿Quieres crear una?', sinCuenta: true };
+  const cli = (await leer(env, 'clientes/' + uid)) || {};
+  if (cli.bloqueado) return { ok: false, error: '🔒 Esta cuenta está bloqueada. Escríbenos en 💬 Ayuda para reactivarla.' };
+  const u = ((await idt(env, 'accounts:lookup', { localId: [uid] })).d.users || [])[0];
+  if (!u || u.disabled) return { ok: false, error: '🔒 Esta cuenta está bloqueada. Escríbenos en 💬 Ayuda.' };
+  const v = await claveCorrecta(u.email, clave);
+  if (!v.ok) {
+    if (/TOO_MANY/.test(v.e)) return { ok: false, error: 'Demasiados intentos. Espera unos minutos o recupera tu clave.' };
+    const n = (Number(intento.n) || 0) + 1;
+    await escribir(env, 'intentos/' + tel, n >= 5 ? { n: 0, hasta: Date.now() + 15 * 60000 } : { n, t: Date.now() });
+    return { ok: false, error: n >= 5 ? 'Clave incorrecta 5 veces. Tu cuenta se pausó 15 minutos.' : `Clave incorrecta (${n} de 5)` };
+  }
+  if (intento.n) await escribir(env, 'intentos/' + tel, null, 'DELETE');
+  return { ok: true, token: await tokenCliente(env, uid) };
+}
+async function cuentaRecuperar(req, env) {
+  const b = await req.json().catch(() => ({}));
+  const tel = normTel(b.tel);
+  if (!tel) return { ok: false, error: 'Escribe tu número' };
+  const lim = (await leer(env, 'intentos/rec' + tel)) || {};
+  if (lim.n >= 3 && Date.now() - lim.t < 3600000) return { ok: false, error: 'Ya te enviamos varios correos. Revisa tu bandeja (y spam) o intenta en una hora.' };
+  const uid = await leer(env, 'tels/' + tel);
+  if (!uid) return { ok: false, error: 'No hay una cuenta con ese número' };
+  const cli = (await leer(env, 'clientes/' + uid)) || {};
+  if (cli.bloqueado) return { ok: false, error: '🔒 Esta cuenta está bloqueada. Escríbenos en 💬 Ayuda.' };
+  const u = ((await idt(env, 'accounts:lookup', { localId: [uid] })).d.users || [])[0];
+  if (!u) return { ok: false, error: 'No encontramos la cuenta' };
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + API_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Firebase-Locale': 'es' }, body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: u.email, continueUrl: 'https://torronsgt.pages.dev/?cliente=1' }) });
+  await escribir(env, 'intentos/rec' + tel, { n: (Date.now() - (lim.t || 0) < 3600000 ? (Number(lim.n) || 0) : 0) + 1, t: Date.now() });
+  if (!r.ok) return { ok: false, error: 'No se pudo enviar el correo. Intenta más tarde.' };
+  return { ok: true, correo: tapar(u.email) };
+}
+// Cambiar el número (el cliente entró con su correo). Si el número nuevo ya tiene cuenta, debe elegir.
+async function cuentaCambiarTel(req, env, u) {
+  const b = await req.json().catch(() => ({}));
+  const tel = normTel(b.tel);
+  if (!tel) return { ok: false, error: 'Escribe el número nuevo (8 dígitos)' };
+  const uid = u.localId;
+  const cli = await leer(env, 'clientes/' + uid);
+  if (!cli) return { ok: false, error: 'Cuenta no encontrada' };
+  if (cli.tel === tel) return { ok: false, error: 'Ese ya es tu número' };
+  const otro = await leer(env, 'tels/' + tel);
+  if (otro && otro !== uid) {
+    if (!b.claveOtra) return { ok: false, conflicto: true, error: 'Ese número ya tiene otra cuenta del Club Torrons.' };
+    const u2 = ((await idt(env, 'accounts:lookup', { localId: [otro] })).d.users || [])[0];
+    if (!u2 || !(await claveCorrecta(u2.email, String(b.claveOtra))).ok) return { ok: false, conflicto: true, error: 'La clave de la otra cuenta no es correcta' };
+    // Se queda con ESTA cuenta: la otra se cierra (bloqueada) y suelta el número
+    await idt(env, 'accounts:update', { localId: otro, disableUser: true });
+    await escribir(env, `clientes/${otro}`, { bloqueado: { t: Date.now(), motivo: 'Unificada: el cliente eligió quedarse con otra cuenta', por: 'cliente' }, tel: null }, 'PATCH');
+    const ok = await siIgual(env, 'tels/' + tel, otro, uid);
+    if (!ok.ok) return { ok: false, error: 'No se pudo cambiar el número, intenta de nuevo' };
+  } else if (!otro) {
+    const ok = await siIgual(env, 'tels/' + tel, null, uid);
+    if (!ok.ok) return { ok: false, error: 'Ese número se acaba de registrar en otra cuenta' };
+  }
+  if (cli.tel && (await leer(env, 'tels/' + cli.tel)) === uid) await escribir(env, 'tels/' + cli.tel, null, 'DELETE');
+  await escribir(env, 'clientes/' + uid, { tel, telAnterior: cli.tel || '', telCambio: Date.now() }, 'PATCH');
+  return { ok: true, tel };
+}
+
+// ---------- Máquina de premios ----------
+function elegirPremio(tabla) {
+  const total = tabla.reduce((s, p) => s + (Number(p.prob) || 0), 0);
+  let x = (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * total;
+  for (const p of tabla) { x -= Number(p.prob) || 0; if (x < 0) return p; }
+  return tabla[tabla.length - 1];
+}
+async function cuentaJugar(req, env, u) {
+  const b = await req.json().catch(() => ({}));
+  const tipo = b.tipo === 'compra' ? 'compra' : 'diario';
+  const uid = u.localId;
+  const cli = await leer(env, 'clientes/' + uid);
+  if (!cli) return { ok: false, error: 'Cuenta no encontrada' };
+  if (cli.bloqueado) return { ok: false, error: 'Cuenta bloqueada' };
+  if (tipo === 'diario') {
+    const hoy = hoyGT();
+    const r = await siIgual(env, `clientes/${uid}/juego/dia`, (cli.juego || {}).dia || null, hoy);
+    if ((cli.juego || {}).dia === hoy || !r.ok) return { ok: false, error: 'Ya usaste tu tiro de hoy. ¡Vuelve mañana!' };
+  } else {
+    const n = Number((cli.juego || {}).compras) || 0;
+    if (n <= 0) return { ok: false, error: 'No tienes tiros por compra. Cada pedido entregado te da uno.' };
+    const r = await siIgual(env, `clientes/${uid}/juego/compras`, (cli.juego || {}).compras, n - 1);
+    if (!r.ok) return { ok: false, error: 'Intenta de nuevo' };
+  }
+  const cfg = (await leer(env, 'config/juego')) || {};
+  const tabla = Array.isArray(cfg[tipo]) && cfg[tipo].length ? cfg[tipo] : JUEGO_DEF[tipo];
+  const p = elegirPremio(tabla);
+  const t = Date.now();
+  const res = { ok: true, tipo, premio: { id: p.id, txt: p.txt, emoji: p.emoji, tipo: p.tipo } };
+  if (p.tipo === 'puntos') {
+    await darPuntos(env, uid, p.valor, 'Premio de la máquina: ' + p.txt);
+  } else if (p.tipo !== 'nada') {
+    const pid = 'P' + t.toString(36) + Math.random().toString(36).slice(2, 6);
+    const premio = { id: p.id, txt: p.txt, emoji: p.emoji || '🎁', tipo: p.tipo, valor: Number(p.valor) || 0, prod: p.prod || null, minimo: Number(p.minimo) || 0, origen: tipo, emitido: t, vence: t + PREMIO_DIAS * DIA };
+    await escribir(env, `clientes/${uid}/premios/${pid}`, premio);
+    res.premio.key = pid; res.premio.vence = premio.vence;
+  }
+  await escribir(env, `clientes/${uid}/jugadas/J${t.toString(36)}`, { t, tipo, premio: p.id, txt: p.txt });
+  return res;
+}
+
+// ---------- Canje en un pedido: se reserva antes de crear el pedido ----------
+async function cuentaReservar(req, env, u) {
+  const b = await req.json().catch(() => ({}));
+  const uid = u.localId, pedido = String(b.pedido || '');
+  if (!/^-[A-Za-z0-9_-]{19}$/.test(pedido)) return { ok: false, error: 'Pedido no válido' };
+  const cli = await leer(env, 'clientes/' + uid);
+  if (!cli || cli.bloqueado) return { ok: false, error: 'Cuenta no disponible' };
+  if (await leer(env, 'reservas/' + pedido)) return { ok: false, error: 'Ese pedido ya tiene un canje' };
+  const reserva = { uid, t: Date.now() };
+  const premioKey = b.premio ? String(b.premio) : '';
+  if (premioKey) {
+    const p = (cli.premios || {})[premioKey];
+    if (!p) return { ok: false, error: 'Ese premio no existe' };
+    if (p.usado) return { ok: false, error: 'Ese premio ya se usó' };
+    if (p.vence < Date.now()) return { ok: false, error: 'Ese premio ya venció' };
+    if (p.reservado && p.reservado.t > Date.now() - RESERVA_MIN * 60000) return { ok: false, error: 'Ese premio está apartado en otro pedido. Espera unos minutos.' };
+    await escribir(env, `clientes/${uid}/premios/${premioKey}/reservado`, { pedido, t: Date.now() });
+    reserva.premio = premioKey;
+  }
+  const pts = r2(b.puntos);
+  if (pts > 0) {
+    if (pts < PUNTOS_MIN_CANJE) { if (premioKey) await escribir(env, `clientes/${uid}/premios/${premioKey}/reservado`, null, 'DELETE'); return { ok: false, error: `Los puntos se canjean desde Q${PUNTOS_MIN_CANJE}` }; }
+    const usados = await gastarPuntos(env, uid, pts);
+    if (!usados) { if (premioKey) await escribir(env, `clientes/${uid}/premios/${premioKey}/reservado`, null, 'DELETE'); return { ok: false, error: 'No tienes suficientes puntos' }; }
+    reserva.puntos = pts; reserva.lotes = usados;
+    await escribir(env, `clientes/${uid}/movs/C${pedido}`, { tipo: 'canje', pts: -pts, t: Date.now(), pedido, motivo: 'Canje en pedido #' + pedido.slice(-5).toUpperCase() });
+  }
+  await escribir(env, 'reservas/' + pedido, reserva);
+  return { ok: true };
+}
+async function liberarReserva(env, key, r, motivo) {
+  if (r.premio) await escribir(env, `clientes/${r.uid}/premios/${r.premio}/reservado`, null, 'DELETE');
+  if (r.puntos) {
+    await devolverPuntos(env, r.uid, r.lotes);
+    await escribir(env, `clientes/${r.uid}/movs/C${key}`, null, 'DELETE');
+  }
+  await escribir(env, 'reservas/' + key, null, 'DELETE');
+}
+
+// ---------- Cada minuto: canjes, compras y puntos ----------
+async function revisarCuentas(env) {
+  const res = { reservas: 0, puntos: 0 };
+  const reservas = (await leer(env, 'reservas')) || {};
+  for (const key of Object.keys(reservas)) {
+    const r = reservas[key]; if (!r || !r.uid) continue;
+    const o = await leer(env, 'pedidos/' + key);
+    const s = (await leer(env, 'seguimiento/' + key)) || {};
+    const pagado = o && o.pago && o.pago.estado === 'pagado';
+    const cancelado = o && (o.estado === 'cancelado' || s.etapa === 'cancelado');
+    if (r.final) {
+      // ya pagado: se guarda hasta que se entregue; si lo cancelan (reembolso), se devuelven puntos y premio
+      if (cancelado) {
+        if (r.premio) await escribir(env, `clientes/${r.uid}/premios/${r.premio}/usado`, null, 'DELETE');
+        await liberarReserva(env, key, r); res.reservas++;
+      } else if (s.etapa === 'entregado' || Date.now() - r.t > 3 * DIA) {
+        await escribir(env, 'reservas/' + key, null, 'DELETE');
+      }
+    } else if (pagado && !cancelado) {
+      if (r.premio) await escribir(env, `clientes/${r.uid}/premios/${r.premio}`, { usado: { pedido: key, t: Date.now() }, reservado: null }, 'PATCH');
+      await escribir(env, `reservas/${key}/final`, Date.now()); res.reservas++;
+    } else if (cancelado || (!pagado && Date.now() - r.t > RESERVA_MIN * 60000)) {
+      await liberarReserva(env, key, r); res.reservas++;
+    }
+  }
+  // Compras de clientes con cuenta (últimas 48 h): historial + 2% en puntos + 1 tiro al entregarse
+  const desde = prefijoLlave(Date.now() - 48 * 3600000);
+  const filtro = `orderBy=%22%24key%22&startAt=%22${desde}%22`;
+  const [rp, rs] = await Promise.all([db(env, 'pedidos.json?' + filtro), db(env, 'seguimiento.json?' + filtro)]);
+  const pedidos = (await rp.json()) || {}, seg = (await rs.json()) || {};
+  for (const key of Object.keys(pedidos)) {
+    const o = pedidos[key]; if (!o || !o.cuenta || !o.cuenta.uid) continue;
+    const uid = String(o.cuenta.uid); if (!/^[A-Za-z0-9]{10,40}$/.test(uid)) continue;
+    const s = seg[key] || {};
+    const pagado = o.pago ? o.pago.estado === 'pagado' : false;
+    const cancelado = o.estado === 'cancelado' || s.etapa === 'cancelado';
+    const items = Object.values(o.items || {}).filter(i => !i.extra).map(i => (i.cant > 1 ? i.cant + '× ' : '') + i.nombre).join(', ').slice(0, 200);
+    const base = r2((Number(o.subtotal) || 0) - (Number((o.cupon || {}).descuento) || 0) - (Number(o.cuenta.descPremio) || 0) - (Number(o.cuenta.puntos) || 0));
+    if ((pagado || cancelado) && o.cuentaVista !== (cancelado ? 'c' : s.etapa || 'p')) {
+      await escribir(env, `clientes/${uid}/compras/${key}`, { t: o.ts, codigo: key.slice(-5).toUpperCase(), total: Number((o.pago || {}).monto) || base, items, estado: cancelado ? 'cancelado' : (s.etapa || 'recibido') }, 'PATCH');
+      await escribir(env, `pedidos/${key}/cuentaVista`, cancelado ? 'c' : s.etapa || 'p');
+    }
+    const entregado = s.etapa === 'entregado' || (s.etapa === 'listo' && o.metodo === 'pickup' && Date.now() - (o.ts || 0) > 3 * 3600000);
+    if (pagado && !cancelado && entregado && !o.puntosDados && await reclamar(env, `pedidos/${key}/puntosDados`)) {
+      const pts = await darPuntos(env, uid, base * PUNTOS_PCT, `2% de tu pedido #${key.slice(-5).toUpperCase()}`, { pedido: key });
+      const cli = (await leer(env, `clientes/${uid}/juego`)) || {};
+      await escribir(env, `clientes/${uid}/juego/compras`, (Number(cli.compras) || 0) + 1);
+      await escribir(env, `clientes/${uid}/compras/${key}`, { puntos: pts, tiro: true, estado: 'entregado' }, 'PATCH');
+      res.puntos++;
+    }
+  }
+  return res;
+}
+
+// ---------- Administrador ----------
+async function cuentaAdmin(req, env) {
+  if (!(await esAdmin(req))) return { ok: false, error: 'Solo el administrador' };
+  const b = await req.json().catch(() => ({}));
+  const uid = String(b.uid || '');
+  if (!/^[A-Za-z0-9]{10,40}$/.test(uid)) return { ok: false, error: 'Cliente no válido' };
+  if (b.accion === 'bloquear') {
+    await idt(env, 'accounts:update', { localId: uid, disableUser: true, validSince: String(Math.floor(Date.now() / 1000)) });
+    await escribir(env, `clientes/${uid}/bloqueado`, { t: Date.now(), motivo: String(b.motivo || 'A petición del cliente').slice(0, 120), por: 'admin' });
+    return { ok: true };
+  }
+  if (b.accion === 'desbloquear') {
+    const cli = (await leer(env, 'clientes/' + uid)) || {};
+    if (!cli.tel) return { ok: false, error: 'Esta cuenta ya no tiene número (se unificó con otra). No se puede reactivar.' };
+    await idt(env, 'accounts:update', { localId: uid, disableUser: false });
+    await escribir(env, `clientes/${uid}/bloqueado`, null, 'DELETE');
+    return { ok: true };
+  }
+  if (b.accion === 'recuperar') {
+    const u = ((await idt(env, 'accounts:lookup', { localId: [uid] })).d.users || [])[0];
+    if (!u) return { ok: false, error: 'Cuenta no encontrada' };
+    const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + API_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Firebase-Locale': 'es' }, body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: u.email, continueUrl: 'https://torronsgt.pages.dev/?cliente=1' }) });
+    return r.ok ? { ok: true, correo: tapar(u.email) } : { ok: false, error: 'No se pudo enviar' };
+  }
+  if (b.accion === 'reactivar-premio') {
+    const k = String(b.premio || '');
+    const p = await leer(env, `clientes/${uid}/premios/${k}`);
+    if (!p) return { ok: false, error: 'Premio no encontrado' };
+    const dias = Math.min(30, Math.max(1, Number(b.dias) || PREMIO_DIAS));
+    await escribir(env, `clientes/${uid}/premios/${k}`, { usado: null, reservado: null, vence: Date.now() + dias * DIA, reactivado: { t: Date.now(), motivo: String(b.motivo || 'Ayuda al cliente').slice(0, 120) } }, 'PATCH');
+    return { ok: true };
+  }
+  if (b.accion === 'dar-puntos') {
+    const pts = r2(b.puntos);
+    if (!(pts > 0 && pts <= 500)) return { ok: false, error: 'Puntos entre 0.01 y 500' };
+    await darPuntos(env, uid, pts, 'Ajuste de Torrons: ' + String(b.motivo || 'ayuda al cliente').slice(0, 80));
+    return { ok: true };
+  }
+  if (b.accion === 'dar-tiro') {
+    const j = (await leer(env, `clientes/${uid}/juego`)) || {};
+    if (b.tipo === 'diario') await escribir(env, `clientes/${uid}/juego/dia`, null, 'DELETE');
+    else await escribir(env, `clientes/${uid}/juego/compras`, (Number(j.compras) || 0) + 1);
+    return { ok: true };
+  }
+  return { ok: false, error: 'Acción no válida' };
+}
+
+async function rutaCuenta(req, env, ruta) {
+  if (ruta === 'registro') return cuentaRegistro(req, env);
+  if (ruta === 'entrar') return cuentaEntrar(req, env);
+  if (ruta === 'recuperar') return cuentaRecuperar(req, env);
+  if (ruta === 'admin') return cuentaAdmin(req, env);
+  const u = await usuarioDe(req);
+  if (!u) return { ok: false, error: 'Tu sesión venció. Vuelve a entrar.', sesion: true };
+  if (ruta === 'jugar') return cuentaJugar(req, env, u);
+  if (ruta === 'reservar') return cuentaReservar(req, env, u);
+  if (ruta === 'cambiar-tel') return cuentaCambiarTel(req, env, u);
+  return { ok: false, error: 'Ruta no válida' };
+}
+
 export default {
   async scheduled(_ev, env, ctx) {
     ctx.waitUntil(revisarAyuda(env).catch(e => console.log('revisarAyuda', e.message)));
     ctx.waitUntil(revisarPedidos(env).catch(e => console.log('revisarPedidos', e.message)));
+    ctx.waitUntil(revisarCuentas(env).catch(e => console.log('revisarCuentas', e.message)));
   },
 
   async fetch(req, env, ctx) {
@@ -387,6 +797,11 @@ export default {
         voz: '¡Llegó un pedido de prueba! Los avisos de Torrons funcionan.'
       });
       return txt(ok ? '✅ Aviso de prueba enviado a la app' : '❌ No se pudo enviar el aviso', ok ? 200 : 500);
+    }
+    if (url.pathname.startsWith('/cuenta/')) {
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
+      if (req.method !== 'POST') return json(req, { ok: false, error: 'Usa POST' }, 405);
+      try { return json(req, await rutaCuenta(req, env, url.pathname.slice(8))); } catch (e) { return json(req, { ok: false, error: 'Error del servidor: ' + e.message }, 500); }
     }
     if (url.pathname === '/ayuda') {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
