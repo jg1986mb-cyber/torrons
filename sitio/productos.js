@@ -250,12 +250,12 @@ const products = [
   {
     id: 22,
     name: "Chocolate Mixco",
-    desc: "Con azúcar, canela y cacao (10 oz).",
+    desc: "Preparado con agua, con canela y cacao (10 oz). ¿Lo quieres con leche? +Q5.",
     price: 18,
     category: "bebidas",
     emoji: "🍫",
     image: "imagenes/bebida-chocolate-mixco.jpg",
-    needsSweetener: true
+    opciones: { titulo: '¿Cómo lo prefieres?', ops: [['con agua', '💧 Con agua (tradicional)', 0], ['con leche', '🥛 Con leche +Q5', 5]] }
   },
   {
     id: 30,

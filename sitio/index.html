@@ -1660,9 +1660,9 @@
         return;
       }
 
-      if (product.needsSweetener || product.needsEggCook) {
+      if (product.needsSweetener || product.needsEggCook || product.opciones) {
         pendingProductId = id;
-        const OPC = product.needsEggCook
+        const OPC = product.opciones ? product.opciones : product.needsEggCook
           ? { titulo: '🍳 Término del huevo', ops: [['huevo tierno', '🥚 Tierno (yema líquida)'], ['huevo medio', '🍳 Medio'], ['huevo bien cocido', '🍳 Bien cocido']] }
           : { titulo: '¿Cómo lo prefieres?', ops: [['con azúcar', '🍬 Con azúcar'], ['con endulzante', '🌿 Con endulzante'], ['sin endulzar', '☕ Sin endulzar']] };
         document.getElementById('sweetener-title').textContent = OPC.titulo;
@@ -1864,6 +1864,10 @@
       closeSweetenerModal();
       addProductToCart(product, option);
     }
+    function extraOpcion(product, option) {
+      const o = product && product.opciones && option ? product.opciones.ops.find(x => x[0] === option) : null;
+      return o ? (Number(o[2]) || 0) : 0;
+    }
 
     function addProductToCart(product, option) {
       const cartKey = option ? `${product.id}_${option}` : String(product.id);
@@ -1877,7 +1881,7 @@
           id: product.id,
           cartKey: cartKey,
           name: displayName,
-          price: product.price,
+          price: product.price + extraOpcion(product, option),
           qty: 1,
           option: option || null
         });
@@ -2362,7 +2366,7 @@
       cart.forEach(item => {
         if (typeof item.id !== 'number' || item.isComboExtra) return;
         const prod = products.find(x => x.id === item.id);
-        if (prod && item.price !== prod.price) { item.price = prod.price; cambio = true; }
+        if (prod && item.price !== prod.price + extraOpcion(prod, item.option)) { item.price = prod.price + extraOpcion(prod, item.option); cambio = true; }
       });
       if (cambio) saveCart();
       renderProducts(currentFilter);
@@ -2392,7 +2396,7 @@
       cart.forEach(item => {
         if (typeof item.id !== 'number' || item.isComboExtra) return;
         const prod = products.find(x => x.id === item.id);
-        if (prod && item.price !== prod.price) { item.price = prod.price; cambio = true; }
+        if (prod && item.price !== prod.price + extraOpcion(prod, item.option)) { item.price = prod.price + extraOpcion(prod, item.option); cambio = true; }
       });
       if (cambio) saveCart();
       renderProducts(currentFilter);
@@ -2958,7 +2962,7 @@
         if (typeof item.id === 'number') {
           const prod = products.find(x => x.id === item.id);
           if (!prod || !isInStock(item.id)) { agotados.push(String(item.name).replace(/^[^\wÁÉÍÓÚáéíóú]+/, '')); return; }
-          if (!item.isComboExtra) item.price = prod.price;
+          if (!item.isComboExtra) item.price = prod.price + extraOpcion(prod, item.option);
         } else if (String(item.id).startsWith('combo_')) {
           const k = String(item.id).replace('combo_', '');
           const ex = [COMBO_PAPAS].concat(COMBO_LIQUIDS).find(x => x.key === k || (k === 'papas' && x === COMBO_PAPAS));
