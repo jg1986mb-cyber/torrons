@@ -71,7 +71,7 @@
   <div id="toast"></div>
 
   <script>
-    const VERSION_TERMINOS = 1;
+    const VERSION_TERMINOS = 2;
     const TERMINOS = [
       'Trato a cada cliente con respeto y amabilidad, y uso un lenguaje adecuado.',
       'Entrego el pedido completo, cerrado y en buen estado. No abro ni consumo productos.',
@@ -80,6 +80,8 @@
       'Respeto las leyes de tránsito y uso casco. Mi moto, licencia y documentos están en regla y son mi responsabilidad.',
       'Mientras llevo un pedido, la app comparte mi ubicación con Café Torrons y con el cliente. Al terminar el viaje deja de compartirla.',
       'Trabajo de forma independiente: elijo cuándo conectarme y qué viajes acepto.',
+      'No tengo relación laboral, horario ni exclusividad con Café Torrons. Uso mi propio vehículo y equipo, tengo mi propio seguro y respondo por accidentes, multas o daños en mis viajes.',
+      'Uso los datos de los clientes solo para la entrega y no los guardo ni comparto.',
       'Gano el 100% del envío de cada viaje. Los pagados con tarjeta se liquidan cada semana.',
       'Café Torrons puede desactivar mi cuenta si no cumplo estas condiciones.'
     ];
@@ -201,7 +203,7 @@
         <h2 style="color:var(--naranja);font-size:1.35rem;margin-top:20px;">Condiciones para motoristas</h2>
         <p class="gris">Léelas con calma. Para usar la app debes aceptarlas.</p>
         <div class="card" style="margin-top:12px;"><ol>${TERMINOS.map(t => '<li>' + esc(t) + '</li>').join('')}</ol></div>
-        <label class="chk"><input type="checkbox" id="acepto"> Leí y acepto las condiciones de Café Torrons</label>
+        <label class="chk"><input type="checkbox" id="acepto"> Leí y acepto las condiciones y el <a href="legal.html#motoristas" target="_blank" rel="noopener">acuerdo de colaboración independiente</a> de Café Torrons</label>
         <button class="btn verde" onclick="aceptarTerminos()">Aceptar y continuar</button>
         <button class="btn gris" onclick="salir()">No acepto · Salir</button>`);
     }

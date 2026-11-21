@@ -1312,7 +1312,17 @@
       .location-section { padding: 22px; }
       .location-map { height: 240px; }
     }
-  </style>
+  
+    footer .legal-links { margin-top: 14px; font-size: .78rem; opacity: .85; line-height: 1.7; }
+    footer .legal-links a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+    .acepto-legal { display: flex; gap: 8px; align-items: flex-start; font-size: .8rem; line-height: 1.35; margin: 0 0 10px; color: #444; cursor: pointer; text-align: left; }
+    .acepto-legal input { width: 18px; height: 18px; margin-top: 1px; flex: 0 0 auto; accent-color: #c41e3a; }
+    .acepto-legal a { color: #b4500f; font-weight: 600; }
+    .acepto-legal.falta { animation: legalShake .45s; color: #c62828; }
+    @keyframes legalShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+    .cb-cond { text-align: right; font-size: .72rem; margin-top: 2px; }
+    .cb-cond a { color: #888; }
+</style>
 </head>
 <body>
   <!-- Header -->
@@ -1361,6 +1371,7 @@
   <main>
     <h2 class="section-title" id="menu">Nuestro Menú</h2>
     <p class="section-sub">Precios en Quetzales (Q) · Incluye IVA</p>
+    <p class="section-sub" style="font-size:.8rem;margin-top:-6px;opacity:.8;">Imágenes ilustrativas · <a href="legal.html#alergenos" style="color:#b4500f;">⚠️ Información de alérgenos</a></p>
 
     <!-- Categories filter -->
     <div class="categories">
@@ -1448,6 +1459,8 @@
       <span style="text-align:left;line-height:1.2;"><small style="display:block;font-size:.62rem;letter-spacing:.05em;white-space:nowrap;text-transform:uppercase;opacity:.92;">Portafolio · Trabaja con nosotros y más</small><strong style="font-family:Georgia,serif;font-size:1rem;letter-spacing:.02em;">torronsguatemala.com</strong></span>
       <span style="font-size:1.1rem;opacity:.9;">↗</span>
     </a>
+    <p class="legal-links"><a href="legal.html#terminos">Términos de compra</a> · <a href="legal.html#privacidad">Privacidad</a> · <a href="legal.html#alergenos">Alérgenos</a> · <a href="legal.html#cupones">Cupones</a> · <a href="legal.html#negocio">Datos del negocio</a></p>
+    <p class="legal-links" style="opacity:.6;margin-top:4px;">© 2026 Café Torrons Guatemala · 1a avenida A 1-00, zona 2, El Sauce · ventas@torronsguatemala.com</p>
   </footer>
 
   <!-- Cart Overlay & Sidebar -->
@@ -1561,6 +1574,7 @@
         <div class="order-summary-mini" id="order-summary-mini"></div>
       </div>
       <div class="checkout-footer">
+        <label class="acepto-legal" for="acepto-legal"><input type="checkbox" id="acepto-legal"> <span>Acepto los <a href="legal.html#terminos" target="_blank" rel="noopener">Términos de compra</a> y la <a href="legal.html#privacidad" target="_blank" rel="noopener">Política de privacidad</a></span></label>
         <button class="checkout-btn" id="confirm-btn" onclick="confirmAndSendWhatsApp()">
           ✅ Confirmar pedido
         </button>
@@ -2219,7 +2233,7 @@
       } else {
         if (!document.getElementById('cupon-input')) {
           box.innerHTML = `<div class="cb-row"><input id="cupon-input" placeholder="🎟️ ¿Tienes cupón? Pégalo aquí" autocomplete="off" onpaste="pegarCupon(event)" onkeydown="if(event.key==='Enter')aplicarCupon()"><button id="cupon-btn" onclick="aplicarCupon()">Aplicar</button></div>
-            <div class="cb-err" id="cupon-err"></div>`;
+            <div class="cb-err" id="cupon-err"></div><div class="cb-cond"><a href="legal.html#cupones" target="_blank" rel="noopener">Condiciones de cupones</a></div>`;
         }
         row.style.display = 'none';
       }
@@ -2664,6 +2678,13 @@
     }
 
     async function confirmAndSendWhatsApp() {
+      const chkLegal = document.getElementById('acepto-legal');
+      if (chkLegal && !chkLegal.checked) {
+        showToast('Marca la casilla para aceptar los Términos y la Privacidad');
+        const lb = chkLegal.closest('label'); lb.classList.remove('falta'); void lb.offsetWidth; lb.classList.add('falta');
+        return;
+      }
+      try { localStorage.setItem('torrons_acepto_legal', '2026-11-21'); } catch (e) {}
       if (cupon && getCartDescuento() > 0) {
         const btn = document.getElementById('confirm-btn');
         const phone0 = document.getElementById('customer-phone').value.trim();
@@ -3273,6 +3294,7 @@
     }
 
     // Init
+    try { if (localStorage.getItem('torrons_acepto_legal') === '2026-11-21') { const c = document.getElementById('acepto-legal'); if (c) c.checked = true; } } catch (e) {}
     renderProducts();
     updateCartUI();
     renderCreaBases();
