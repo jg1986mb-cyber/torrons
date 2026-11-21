@@ -64,6 +64,20 @@
   .nv-adorno { position: absolute; top: 100%; width: 18px; pointer-events: none; z-index: 4; transform-origin: top center; animation: nvColgar 3.5s ease-in-out infinite; }
   @keyframes nvColgar { 0%,100% { transform: rotate(6deg); } 50% { transform: rotate(-6deg); } }
 
+
+  .hero-banner > a { display: block; position: relative; max-width: 1920px; margin: 0 auto; }
+  .nv-portada { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .nv-p-logo { position: absolute; }
+  .nv-p-logo .nv-gorro { width: 80%; left: 34%; top: -40%; }
+  .nv-p-banda { position: absolute; left: 0; right: 0; overflow: hidden; }
+  .nv-pm { display: none; } 
+  @media (max-width: 700px) { .nv-pm { display: block; } .nv-pd { display: none; } }
+  .nv-real { position: absolute; top: -12%; will-change: transform; animation: nvCae linear infinite; }
+  .nv-real svg { display: block; width: 100%; animation: nvGira ease-in-out infinite alternate; }
+  @keyframes nvCae { from { transform: translate(0, 0) rotate(0); } to { transform: translate(var(--dx, 0px), 125cqh) rotate(var(--rot, 40deg)); } }
+  @keyframes nvGira { from { transform: scaleX(1); } to { transform: scaleX(.55); } }
+  .nv-p-banda { container-type: size; }
+  @media (prefers-reduced-motion: reduce) { .nv-real { display: none; } }
   .nv-gorrito-footer { display: inline-block; animation: nvGorro 3.2s ease-in-out infinite; }
 
   @media (max-width: 700px) {
@@ -131,6 +145,15 @@
     + '<path d="M22 54 h56" stroke="#c41e3a" stroke-width="5"/><path d="M22 60 h56" stroke="#2f7a3c" stroke-width="3"/>'
     + '<ellipse cx="50" cy="92" rx="34" ry="4" fill="rgba(0,0,0,.25)"/></svg>';
 
+  var MONEDA = '<svg viewBox="0 0 40 40" style="ANIM"><circle cx="20" cy="20" r="19" fill="#b8860b"/><circle cx="20" cy="20" r="16.5" fill="#f2c230"/>'
+    + '<circle cx="20" cy="20" r="13" fill="none" stroke="#c9961a" stroke-width="1.4" stroke-dasharray="2 2"/>'
+    + '<text x="20" y="26.5" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="18" fill="#9a6b07">Q</text>'
+    + '<ellipse cx="14" cy="12" rx="5" ry="3" fill="#fff" opacity=".45"/></svg>';
+  var BILLETE = '<svg viewBox="0 0 80 40" style="ANIM"><rect x="1" y="1" width="78" height="38" rx="3" fill="#3f8f4e" stroke="#2a6a36" stroke-width="2"/>'
+    + '<rect x="6" y="6" width="68" height="28" rx="2" fill="none" stroke="#a8d8a0" stroke-width="1.2"/>'
+    + '<circle cx="40" cy="20" r="10" fill="#6fbf73"/><text x="40" y="25.5" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="15" fill="#1f5a2a">Q</text>'
+    + '<text x="11" y="15" font-family="Arial" font-weight="700" font-size="7" fill="#d9f2d3">Q</text><text x="64" y="32" font-family="Arial" font-weight="700" font-size="7" fill="#d9f2d3">Q</text></svg>';
+
   function adorno(c) {
     return '<svg viewBox="0 0 18 40" aria-hidden="true"><line x1="9" y1="0" x2="9" y2="20" stroke="#cfa64a" stroke-width="1"/>'
       + '<rect x="6.5" y="18" width="5" height="4" fill="#cfa64a"/><circle cx="9" cy="30" r="8" fill="' + c + '"/>'
@@ -177,7 +200,34 @@
       hero.parentNode.insertBefore(b, hero.nextSibling);
     }
 
-    // 4) Nieve
+    // 4) Portada: gorro en el logo de la imagen y realitos cayendo en la franja naranja
+    var aP = document.querySelector('.hero-banner > a');
+    if (aP && !aP.querySelector('.nv-portada')) {
+      var cfg = [
+        { cls: 'nv-pd', hat: 'width:64%;left:40%;top:-30%', logo: [39.7, 31.5, 20.6, 36.7], banda: [29.8, 40.4], n: 16 },   // computadora (1920x1080)
+        { cls: 'nv-pm', hat: '', logo: [37.5, 24.8, 25, 20], banda: [23.2, 53.8], n: 11 }         // celular (1080x1350)
+      ];
+      var html = '';
+      cfg.forEach(function (c) {
+        var reales = '';
+        for (var i = 0; i < c.n; i++) {
+          var bill = Math.random() < .22, w = bill ? (c.cls === 'nv-pm' ? 9 : 4.2) : (c.cls === 'nv-pm' ? 7 + Math.random() * 3 : 2.6 + Math.random() * 1.6);
+          var dur = 9 + Math.random() * 9, del = -Math.random() * dur;
+          var x; do { x = Math.random() * 96; } while (x + w > c.logo[0] - 1 && x < c.logo[0] + c.logo[2] + 1);
+          reales += '<span class="nv-real" style="left:' + x.toFixed(1) + '%;width:' + w.toFixed(2) + '%;animation-duration:' + dur.toFixed(1) + 's;animation-delay:' + del.toFixed(1)
+            + 's;--dx:' + Math.round(Math.random() * 60 - 30) + 'px;--rot:' + Math.round(Math.random() * 120 - 60) + 'deg">'
+            + (bill ? BILLETE : MONEDA).replace('ANIM', 'animation-duration:' + (1.6 + Math.random() * 2).toFixed(2) + 's') + '</span>';
+        }
+        html += '<div class="nv-p-logo ' + c.cls + '" style="left:' + c.logo[0] + '%;top:' + c.logo[1] + '%;width:' + c.logo[2] + '%;height:' + c.logo[3] + '%">' + GORRO.replace('class="nv-gorro"', 'class="nv-gorro" style="' + c.hat + '"') + '</div>'
+          + '<div class="nv-p-banda ' + c.cls + '" style="top:' + c.banda[0] + '%;height:' + c.banda[1] + '%">' + reales + '</div>';
+      });
+      var ov = document.createElement('div'); ov.className = 'nv-portada'; ov.setAttribute('aria-hidden', 'true'); ov.innerHTML = html;
+      aP.appendChild(ov);
+      // el gorro va encima de las monedas
+      ov.querySelectorAll('.nv-p-logo').forEach(function (l) { ov.appendChild(l); });
+    }
+
+    // 5) Nieve
     if (!calmado) nieve();
   }
 
