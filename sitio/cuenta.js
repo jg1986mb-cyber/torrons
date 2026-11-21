@@ -196,7 +196,8 @@
   function err(t) { var e = $('cu-err'); if (e) e.textContent = t || ''; }
   function ocupado(b, si, txt) { if (!b) return; if (si) { b.dataset.t = b.innerHTML; b.disabled = true; b.innerHTML = '⏳ ' + (txt || 'Un momento…'); } else { b.disabled = false; if (b.dataset.t) b.innerHTML = b.dataset.t; } }
   function campoClave(id, ph) {
-    return '<div class="cu-pass"><input class="cu-in" id="' + id + '" type="password" inputmode="numeric" autocomplete="' + (id === 'cu-clave' ? 'current-password' : 'new-password') + '" maxlength="12" placeholder="' + (ph || '••••••') + '" oninput="this.value=this.value.replace(/\\D/g,\'\')">' +
+    var nueva = /^cu-c[12]$/.test(id);
+    return '<div class="cu-pass"><input class="cu-in" id="' + id + '" type="password" ' + (nueva ? 'inputmode="numeric" maxlength="12" oninput="this.value=this.value.replace(/\\D/g,\'\')"' : 'maxlength="64"') + ' autocomplete="' + (nueva ? 'new-password' : 'current-password') + '" placeholder="' + (ph || '••••••') + '">' +
       '<button type="button" class="cu-ojo" aria-label="Mostrar clave" onclick="cuOjo(\'' + id + '\',this)">👁️</button></div>';
   }
   window.cuOjo = function (id, b) { var i = $(id); var ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; b.textContent = ver ? '🙈' : '👁️'; b.setAttribute('aria-label', ver ? 'Ocultar clave' : 'Mostrar clave'); };
