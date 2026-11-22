@@ -729,6 +729,32 @@ async function cuentaAdmin(req, env) {
     const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + API_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Firebase-Locale': 'es' }, body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: u.email, continueUrl: 'https://torronsgt.pages.dev/?cliente=1' }) });
     return r.ok ? { ok: true, correo: tapar(u.email) } : { ok: false, error: 'No se pudo enviar' };
   }
+  if (b.accion === 'cambiar-correo') {
+    const email = String(b.email || '').trim().toLowerCase();
+    if (!correoOk(email)) return { ok: false, error: 'Correo no válido' };
+    const r = await idt(env, 'accounts:update', { localId: uid, email, emailVerified: false });
+    if (!r.ok) { const m = (r.d.error || {}).message || ''; return { ok: false, error: /EMAIL_EXISTS/.test(m) ? 'Ese correo ya está en otra cuenta' : 'No se pudo cambiar (' + m.slice(0, 60) + ')' }; }
+    const cli = (await leer(env, 'clientes/' + uid)) || {};
+    await escribir(env, 'clientes/' + uid, { email, emailAnterior: cli.email || '', emailCambio: Date.now() }, 'PATCH');
+    return { ok: true, email };
+  }
+  if (b.accion === 'cambiar-tel') {
+    const tel = normTel(b.tel);
+    if (!tel) return { ok: false, error: 'Número no válido (8 dígitos)' };
+    const cli = await leer(env, 'clientes/' + uid);
+    if (!cli) return { ok: false, error: 'Cliente no encontrado' };
+    if (cli.tel === tel) return { ok: false, error: 'Ese ya es su número' };
+    const otro = await leer(env, 'tels/' + tel);
+    if (otro && otro !== uid) {
+      const o = (await leer(env, 'clientes/' + otro)) || {};
+      return { ok: false, error: `Ese número ya es de la cuenta de ${o.nombre || ''} ${o.apellido || ''}. Revisa cuál es la correcta antes de cambiarlo.` };
+    }
+    const ok = await siIgual(env, 'tels/' + tel, otro || null, uid);
+    if (!ok.ok) return { ok: false, error: 'Intenta de nuevo' };
+    if (cli.tel && (await leer(env, 'tels/' + cli.tel)) === uid) await escribir(env, 'tels/' + cli.tel, null, 'DELETE');
+    await escribir(env, 'clientes/' + uid, { tel, telAnterior: cli.tel || '', telCambio: Date.now() }, 'PATCH');
+    return { ok: true, tel };
+  }
   if (b.accion === 'reactivar-premio') {
     const k = String(b.premio || '');
     const p = await leer(env, `clientes/${uid}/premios/${k}`);

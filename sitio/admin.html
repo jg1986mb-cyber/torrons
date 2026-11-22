@@ -1686,6 +1686,8 @@
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0">
           ${c.bloqueado ? `<button class="btn" onclick="clBloq('${uid}',false)">🔓 Desbloquear cuenta</button>` : `<button class="btn" style="background:#c62828;color:#fff" onclick="clBloq('${uid}',true)">🔒 Bloquear cuenta</button>`}
           <button class="btn" onclick="clRecup('${uid}')">📧 Enviar correo para cambiar clave</button>
+          <button class="btn" onclick="clCorreo('${uid}')">✏️ Corregir correo</button>
+          <button class="btn" onclick="clTel('${uid}')">✏️ Corregir número</button>
           <button class="btn" onclick="clPuntos('${uid}')">⭐ Dar puntos</button>
           <button class="btn" onclick="clTiro('${uid}','compra')">🎁 Dar 1 tiro por compra</button>
           <button class="btn" onclick="clTiro('${uid}','diario')">🎰 Devolver tiro de hoy</button>
@@ -1711,6 +1713,26 @@
         if (await clAccion(uid, 'desbloquear')) toast('🔓 Cuenta desbloqueada. Si cambió de teléfono, envíale el correo para cambiar su clave.');
       }
       clCargar(true);
+    }
+    async function clCorreo(uid) {
+      const c = clientes[uid] || {};
+      const v = prompt(`Correo correcto para ${c.nombre} ${c.apellido || ''}\n(actual: ${c.email || '—'})`, c.email || ''); if (v == null) return;
+      const email = v.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return toast('Ese correo no es válido');
+      if (email === String(c.email || '').toLowerCase()) return toast('Es el mismo correo');
+      if (!confirm(`¿Cambiar el correo de ${c.nombre}?\n\nDe: ${c.email || '—'}\nA: ${email}\n\nCon este correo recuperará su clave.`)) return;
+      const d = await clAccion(uid, 'cambiar-correo', { email });
+      if (d) { toast('✅ Correo actualizado'); clCargar(true); }
+    }
+    async function clTel(uid) {
+      const c = clientes[uid] || {}; const act = String(c.tel || '').replace(/^502/, '');
+      const v = prompt(`Número correcto para ${c.nombre} ${c.apellido || ''} (8 dígitos)\n(actual: ${act || '—'})`, act); if (v == null) return;
+      const tel = v.replace(/\D/g, '').replace(/^502(?=\d{8}$)/, '');
+      if (tel.length !== 8) return toast('El número debe tener 8 dígitos');
+      if (tel === act) return toast('Es el mismo número');
+      if (!confirm(`¿Cambiar el número de ${c.nombre}?\n\nDe: ${act || '—'}\nA: ${tel}\n\nDesde ahora entrará con el número nuevo.`)) return;
+      const d = await clAccion(uid, 'cambiar-tel', { tel });
+      if (d) { toast('✅ Número actualizado'); clCargar(true); }
     }
     async function clRecup(uid) { const d = await clAccion(uid, 'recuperar'); if (d) toast('📧 Correo enviado a ' + d.correo); }
     async function clPuntos(uid) {
