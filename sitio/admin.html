@@ -1909,7 +1909,7 @@
       h.querySelectorAll('img.ay-foto').forEach(im => {
         im.onclick = () => { if (!im.src) return; const z = document.createElement('div'); z.className = 'ay-zoom'; z.innerHTML = '<img src="' + im.src + '" alt="">'; z.onclick = () => z.remove(); document.body.appendChild(z); };
         const k = im.dataset.k;
-        if (!ayFotos[k] && !ayPidiendo[k]) { ayPidiendo[k] = 1; db.ref('ayudaImg/' + idc + '/' + k).once('value').then(s => { if (s.val()) { ayFotos[k] = s.val(); im.src = s.val(); h.scrollTop = h.scrollHeight; } }).catch(() => {}); }
+        if (!ayFotos[k] && !ayPidiendo[k]) { ayPidiendo[k] = 1; db.ref('ayudaImg/' + idc + '/' + k).once('value').then(s => { if (s.val()) { ayFotos[k] = s.val(); if (ayActual === idc) renderAyConv(); } }).catch(() => {}); }
       });
     }
     const ayFotos = {}, ayPidiendo = {};
