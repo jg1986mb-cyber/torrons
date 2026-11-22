@@ -236,6 +236,10 @@
     .ay-b.c { align-self: flex-start; background: #fff; border: 1px solid #eadfd3; border-bottom-left-radius: 4px; }
     .ay-b.t { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
     .ay-b.saludo { align-self: center; background: #fff4e6; border: 1px dashed #f1d6b4; font-size: .8rem; color: #8a5a2b; max-width: 92%; }
+    .ay-clip { flex: none; width: 44px; height: 44px; border-radius: 12px; background: #f1ebe5; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+    .ay-foto { display: block; max-width: 240px; width: 100%; border-radius: 12px; margin-bottom: 4px; cursor: zoom-in; background: #eee; min-height: 60px; }
+    .ay-zoom { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; padding: 14px; }
+    .ay-zoom img { max-width: 100%; max-height: 100%; border-radius: 10px; }
     .ay-rap { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; }
     .ay-rap button { flex: none; border: 1.5px solid #e86a17; background: #fff; color: #b4500f; border-radius: 999px; padding: 5px 11px; font-family: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ay-resp { display: flex; gap: 8px; padding: 10px 12px; align-items: flex-end; }
@@ -1876,7 +1880,7 @@
       const previo = document.getElementById('ay-resp-txt'); const borrador = previo ? previo.value : '';
       const foco = previo && document.activeElement === previo;
       let tel = String(c.tel || '').replace(/\D/g, ''); if (tel.length === 8) tel = '502' + tel;
-      const msgs = Object.values(c.msgs || {}).sort((a, b) => (a.t || 0) - (b.t || 0));
+      const msgs = Object.keys(c.msgs || {}).map(k => Object.assign({ k }, c.msgs[k])).sort((a, b) => (a.t || 0) - (b.t || 0));
       const rap = (ayCfg.rapidas && ayCfg.rapidas.length ? ayCfg.rapidas : AY_RAPIDAS_DEF);
       box.innerHTML = `
         <div class="ay-chead">
@@ -1889,10 +1893,11 @@
         </div>
         <div class="ay-hist" id="ay-hist">
           <div class="ay-b saludo">Saludo automático: ${esc(ayCfg.saludo || AY_SALUDO_DEF)}</div>
-          ${msgs.map(m => `<div class="ay-b ${m.de === 't' ? 't' : 'c'}">${esc(m.txt)}<small>${ayHora(m.t)}</small></div>`).join('')}
+          ${msgs.map(m => `<div class="ay-b ${m.de === 't' ? 't' : 'c'}">${m.foto ? `<img class="ay-foto" data-k="${esc(m.k)}" alt="Foto" ${ayFotos[m.k] ? `src="${ayFotos[m.k]}"` : ''}>` : ''}${esc(m.foto ? String(m.txt || '').replace(/^📷 Foto\s*/, '') : m.txt)}<small>${ayHora(m.t)}</small></div>`).join('')}
         </div>
         <div class="ay-rap">${rap.map((r, i) => `<button type="button" title="${esc(r)}" onclick="ayRapida(${i})">${esc(r)}</button>`).join('')}</div>
         <div class="ay-resp">
+          <label class="ay-clip" title="Enviar foto">📷<input type="file" accept="image/*" hidden onchange="ayFotoAdmin(this)"></label>
           <textarea id="ay-resp-txt" maxlength="600" placeholder="Escribe tu respuesta…"></textarea>
           <button class="btn" onclick="ayResponder()">Enviar</button>
         </div>`;
@@ -1900,6 +1905,44 @@
       ta.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); ayResponder(); } });
       if (foco) ta.focus();
       const h = document.getElementById('ay-hist'); h.scrollTop = h.scrollHeight;
+      const idc = ayActual;
+      h.querySelectorAll('img.ay-foto').forEach(im => {
+        im.onclick = () => { if (!im.src) return; const z = document.createElement('div'); z.className = 'ay-zoom'; z.innerHTML = '<img src="' + im.src + '" alt="">'; z.onclick = () => z.remove(); document.body.appendChild(z); };
+        const k = im.dataset.k;
+        if (!ayFotos[k] && !ayPidiendo[k]) { ayPidiendo[k] = 1; db.ref('ayudaImg/' + idc + '/' + k).once('value').then(s => { if (s.val()) { ayFotos[k] = s.val(); im.src = s.val(); h.scrollTop = h.scrollHeight; } }).catch(() => {}); }
+      });
+    }
+    const ayFotos = {}, ayPidiendo = {};
+    // Comprime la foto en el teléfono: máx. 1280 px, JPEG (queda en ~100-250 KB)
+    async function ayComprimir(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+        let lado = 1280, q = 0.75, out = '';
+        for (let n = 0; n < 5; n++) {
+          const s = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+          const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+          out = c.toDataURL('image/jpeg', q);
+          if (out.length < 380000) return out;
+          lado = Math.round(lado * 0.8); q = Math.max(0.5, q - 0.08);
+        }
+        throw new Error('La foto es demasiado grande');
+      } finally { URL.revokeObjectURL(url); }
+    }
+
+    async function ayFotoAdmin(inp) {
+      const f = inp.files && inp.files[0]; inp.value = '';
+      const id = ayActual; if (!f || !id) return;
+      toast('📷 Enviando foto…');
+      try {
+        const d = await ayComprimir(f);
+        const ta = document.getElementById('ay-resp-txt'); const cap = (ta.value || '').trim().slice(0, 580); ta.value = '';
+        const txt = ('📷 Foto ' + cap).trim();
+        const base = db.ref('ayuda/' + id), k = base.child('msgs').push().key;
+        await db.ref('ayudaImg/' + id + '/' + k).set(d); ayFotos[k] = d;
+        await base.update({ ['msgs/' + k]: { de: 't', txt, t: firebase.database.ServerValue.TIMESTAMP, foto: true }, ultimo: firebase.database.ServerValue.TIMESTAMP, ultimoTxt: txt.slice(0, 120), ultimoDe: 't', sinLeer: 0 });
+      } catch (e) { toast('❌ No se pudo enviar la foto: ' + e.message); }
     }
     function ayAbrirChat(id) {
       ayActual = id; renderAyuda();
@@ -1924,6 +1967,7 @@
     function ayBorrar(id) {
       const c = ayChats[id] || {};
       if (!dobleConfirmar('¿Eliminar la conversación con ' + (c.nombre || 'este cliente') + '?')) return;
+      db.ref('ayudaImg/' + id).remove().catch(() => {});
       db.ref('ayuda/' + id).remove().then(() => { if (ayActual === id) ayActual = null; toast('🗑️ Conversación eliminada'); }).catch(e => toast('❌ ' + e.message));
     }
     function ayCargarCfg(v) {

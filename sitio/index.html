@@ -3372,6 +3372,10 @@
     .ay-pie textarea { resize: none; height: 42px; max-height: 110px; }
     .ay-pie button { flex: none; width: 46px; height: 42px; border-radius: 12px; border: none; background: #c41e3a; color: #fff; font-size: 1.15rem; cursor: pointer; }
     .ay-pie button:disabled { opacity: .5; }
+    .ay-clip { flex: none; width: 42px; height: 42px; border-radius: 12px; background: #f6efe7; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+    .ay-foto { display: block; max-width: 220px; width: 100%; border-radius: 12px; margin-bottom: 4px; cursor: zoom-in; background: #eee; min-height: 60px; }
+    .ay-zoom { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; padding: 14px; }
+    .ay-zoom img { max-width: 100%; max-height: 100%; border-radius: 10px; }
     .ay-err { color: #c41e3a; font-size: .78rem; padding: 0 12px; background: #fff; }
     @media (max-width: 480px) { .ay-btn .ay-txt { display: none; } .ay-btn { padding: 14px; } .ay-panel { right: 8px; left: 8px; width: auto; bottom: 76px; } }
   </style>
@@ -3390,6 +3394,7 @@
     </div>
     <div class="ay-err" id="ay-err"></div>
     <div class="ay-pie">
+      <label class="ay-clip" title="Enviar foto" aria-label="Enviar foto">📷<input type="file" id="ay-foto" accept="image/*" hidden></label>
       <textarea id="ay-txt" maxlength="600" placeholder="Escribe tu mensaje…" rows="1"></textarea>
       <button id="ay-enviar" onclick="ayEnviar()" aria-label="Enviar">➤</button>
     </div>
@@ -3403,6 +3408,25 @@
     const e = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const hora = t => { try { return new Date(t).toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit' }); } catch (x) { return ''; } };
     let cfg = { saludo: SALUDO_DEF, activo: true }, chat = null, msgs = {}, ref = null, abierto = false, enviando = false;
+    const fotos = {}, pidiendo = {};
+    // Comprime la foto en el teléfono: máx. 1280 px, JPEG (queda en ~100-250 KB)
+    async function ayComprimir(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+        let lado = 1280, q = 0.75, out = '';
+        for (let n = 0; n < 5; n++) {
+          const s = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+          const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+          out = c.toDataURL('image/jpeg', q);
+          if (out.length < 380000) return out;
+          lado = Math.round(lado * 0.8); q = Math.max(0.5, q - 0.08);
+        }
+        throw new Error('La foto es demasiado grande');
+      } finally { URL.revokeObjectURL(url); }
+    }
+
     let id = null; try { id = localStorage.getItem(K_ID); } catch (x) {}
     const visto = () => { try { return Number(localStorage.getItem(K_VISTO)) || 0; } catch (x) { return 0; } };
 
@@ -3415,9 +3439,16 @@
       let h = '<div class="ay-m t">' + e(cfg.saludo || SALUDO_DEF) + '</div>';
       const lista = Object.values(msgs).sort((a, b) => a.t - b.t);
       if (!lista.length) h += '<div class="ay-chips">' + TEMAS.map(t => '<button type="button" data-t="' + e(t) + '">' + e(t) + '</button>').join('') + '</div>';
-      lista.forEach(m => { h += '<div class="ay-m ' + (m.de === 't' ? 't' : 'c') + '">' + e(m.txt) + '<small>' + hora(m.t) + (m.de === 't' ? ' · Torrons' : '') + '</small></div>'; });
+      Object.keys(msgs).sort((a, b) => msgs[a].t - msgs[b].t).forEach(k => { const m = msgs[k];
+        const txt = m.foto ? String(m.txt || '').replace(/^📷 Foto\s*/, '') : m.txt;
+        h += '<div class="ay-m ' + (m.de === 't' ? 't' : 'c') + '">' + (m.foto ? '<img class="ay-foto" data-k="' + e(k) + '" alt="Foto" ' + (fotos[k] ? 'src="' + fotos[k] + '"' : '') + '>' : '') + e(txt) + '<small>' + hora(m.t) + (m.de === 't' ? ' · Torrons' : '') + '</small></div>'; });
       box.innerHTML = h;
       box.querySelectorAll('.ay-chips button').forEach(b => b.onclick = () => { const ta = document.getElementById('ay-txt'); ta.value = b.dataset.t + (/^(Otra|Quiero poner|Observaciones)/.test(b.dataset.t) ? ': ' : ''); ta.focus(); });
+      box.querySelectorAll('img.ay-foto').forEach(im => {
+        im.onclick = () => { if (!im.src) return; const z = document.createElement('div'); z.className = 'ay-zoom'; z.innerHTML = '<img src="' + im.src + '" alt="">'; z.onclick = () => z.remove(); document.body.appendChild(z); };
+        const k = im.dataset.k;
+        if (!fotos[k] && !pidiendo[k] && id) { pidiendo[k] = 1; db.ref('ayudaImg/' + id + '/' + k).once('value').then(s => { if (s.val()) { fotos[k] = s.val(); pintar(); } }).catch(() => {}); }
+      });
       box.scrollTop = box.scrollHeight;
       document.getElementById('ay-datos').style.display = chat && chat.nombre ? 'none' : '';
       contarNuevos();
@@ -3467,11 +3498,12 @@
     };
     window.ayAbrirCon = function (t) { ayAbrir(); const ta = document.getElementById('ay-txt'); if (!ta.value) ta.value = t || ''; setTimeout(() => { if (chat && chat.nombre) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 80); };
     window.ayCerrar = function () { abierto = false; document.getElementById('ay-panel').classList.remove('open'); marcarVisto(); };
-    window.ayEnviar = async function () {
+    window.ayEnviar = async function (foto) {
       if (enviando) return;
       const err = document.getElementById('ay-err'); err.textContent = '';
       const ta = document.getElementById('ay-txt');
-      const txt = ta.value.trim().slice(0, 600);
+      let txt = ta.value.trim().slice(0, 580);
+      if (foto) txt = ('📷 Foto ' + txt).trim();
       if (!txt) { ta.focus(); return; }
       const esNuevo = !(chat && chat.nombre);
       const nombre = document.getElementById('ay-nombre').value.trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -3483,7 +3515,8 @@
         const base = db.ref('ayuda/' + id);
         if (esNuevo) await base.update({ nombre, tel, creado: firebase.database.ServerValue.TIMESTAMP });
         const k = base.child('msgs').push().key;
-        const up = { ['msgs/' + k]: { de: 'c', txt, t: firebase.database.ServerValue.TIMESTAMP }, ultimo: firebase.database.ServerValue.TIMESTAMP, ultimoTxt: txt.slice(0, 120), ultimoDe: 'c', sinLeer: ((chat && chat.sinLeer) || 0) + 1 };
+        if (foto) { await db.ref('ayudaImg/' + id + '/' + k).set(foto); fotos[k] = foto; }
+        const up = { ['msgs/' + k]: Object.assign({ de: 'c', txt, t: firebase.database.ServerValue.TIMESTAMP }, foto ? { foto: true } : {}), ultimo: firebase.database.ServerValue.TIMESTAMP, ultimoTxt: txt.slice(0, 120), ultimoDe: 'c', sinLeer: ((chat && chat.sinLeer) || 0) + 1 };
         try { if (typeof miPedido !== 'undefined' && miPedido && miPedido.codigo) up.pedido = String(miPedido.codigo).slice(0, 12); } catch (x) {}
         await base.update(up);
         ta.value = '';
@@ -3494,6 +3527,16 @@
       }
       enviando = false; document.getElementById('ay-enviar').disabled = false;
     };
+    document.getElementById('ay-foto').addEventListener('change', async ev => {
+      const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+      if (!f) return;
+      const err = document.getElementById('ay-err');
+      const esNuevo = !(chat && chat.nombre);
+      if (esNuevo && document.getElementById('ay-nombre').value.trim().length < 2) { err.textContent = 'Escribe tu nombre antes de enviar la foto.'; document.getElementById('ay-nombre').focus(); return; }
+      err.textContent = '📷 Preparando tu foto…';
+      try { const d = await ayComprimir(f); err.textContent = ''; await ayEnviar(d); }
+      catch (x) { err.textContent = 'No se pudo usar esa foto. Prueba con otra.'; }
+    });
     document.getElementById('ay-txt').addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); ayEnviar(); } });
     db.ref('ayudaCfg').on('value', s => {
       cfg = Object.assign({ saludo: SALUDO_DEF, activo: true }, s.val() || {});

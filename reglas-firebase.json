@@ -176,7 +176,10 @@
             ".write": "!data.exists()",
             ".validate": "newData.hasChildren(['de', 'txt', 't']) && newData.child('txt').isString() && newData.child('txt').val().length >= 1 && newData.child('txt').val().length <= 600 && newData.child('t').isNumber() && newData.child('t').val() <= now + 60000 && (newData.child('de').val() === 'c' || ((auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1') && newData.child('de').val() === 't'))",
             "$o": {
-              ".validate": "$o.matches(/^(de|txt|t)$/)"
+              ".validate": "$o.matches(/^(de|txt|t|foto)$/)"
+            },
+            "foto": {
+              ".validate": "newData.isBoolean()"
             }
           }
         },
@@ -206,6 +209,17 @@
     "intentos": {
       ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
       ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'"
+    },
+    "ayudaImg": {
+      ".read": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      ".write": "auth != null && auth.uid === 'Ur4LfdU64YZstI1B8DQOUOZheIv1'",
+      "$id": {
+        ".read": "$id.length >= 20 && $id.length <= 32 && $id.matches(/^[A-Za-z0-9]+$/)",
+        "$m": {
+          ".write": "!data.exists()",
+          ".validate": "newData.isString() && newData.val().beginsWith('data:image/jpeg;base64,') && newData.val().length < 400000 && root.child('ayuda/' + $id + '/nombre').exists()"
+        }
+      }
     }
   }
 }
